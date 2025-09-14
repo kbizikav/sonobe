@@ -48,6 +48,33 @@ where
     kzg_challenges: [C::ScalarField; 2],
 }
 
+impl<C, CS, S> Proof<C, CS, S>
+where
+    C: Curve,
+    CS: CommitmentScheme<C, ProverChallenge = C::ScalarField, Challenge = C::ScalarField>,
+    S: SNARK<C::ScalarField>,
+{
+    pub fn snark_proof(&self) -> &S::Proof {
+        &self.snark_proof
+    }
+
+    pub fn kzg_proofs(&self) -> &[CS::Proof; 2] {
+        &self.kzg_proofs
+    }
+
+    pub fn cmT(&self) -> &C {
+        &self.cmT
+    }
+
+    pub fn r(&self) -> C::ScalarField {
+        self.r
+    }
+
+    pub fn kzg_challenges(&self) -> [C::ScalarField; 2] {
+        self.kzg_challenges
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct VerifierParam<C1, CS_VerifyingKey, S_VerifyingKey>
 where
