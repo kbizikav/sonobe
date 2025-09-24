@@ -1,8 +1,18 @@
 pub use revm;
+
 use revm::{
-    primitives::{hex, Address, ExecutionResult, Output, TransactTo, TxEnv},
-    Evm as EVM, EvmBuilder, InMemoryDB,
+    context::{
+        result::{ExecutionResult, Output},
+        BlockEnv, CfgEnv, LocalContext, TxEnv,
+    },
+    context_interface::ContextTr,
+    database::InMemoryDB,
+    database_interface::{Database, BENCH_CALLER},
+    handler::{ExecuteCommitEvm, MainBuilder},
+    primitives::{hardfork::SpecId, hex, Address, TxKind},
+    Context, Journal, MainnetEvm,
 };
+
 use std::{
     fmt::Debug,
     fs::{self, create_dir_all, File},
@@ -83,19 +93,21 @@ fn find_binary(stdout: &str, contract_name: &str) -> Option<Vec<u8>> {
 
 /// Evm runner.
 #[derive(Debug)]
-pub struct Evm<'a> {
-    evm: EVM<'a, (), InMemoryDB>,
+pub struct Evm {
+    evm: MainnetEvm<
+        Context<BlockEnv, TxEnv, CfgEnv, InMemoryDB, Journal<InMemoryDB>, (), LocalContext>,
+    >,
 }
 
-impl<'a> Default for Evm<'a> {
+impl Default for Evm {
     fn default() -> Self {
         Self {
-            evm: EvmBuilder::default().with_db(InMemoryDB::default()).build(),
+            evm: Context::new(InMemoryDB::default(), SpecId::default()).build_mainnet(),
         }
     }
 }
 
-impl<'a> Evm<'a> {
+impl Evm {
     /// Apply create transaction with given `bytecode` as creation bytecode.
     /// Return created `address`.
     ///
@@ -104,7 +116,7 @@ impl<'a> Evm<'a> {
     pub fn create(&mut self, bytecode: Vec<u8>) -> Address {
         let (_, output) = self.transact_success_or_panic(TxEnv {
             gas_limit: u64::MAX,
-            transact_to: TransactTo::Create,
+            kind: TxKind::Create,
             data: bytecode.into(),
             ..Default::default()
         });
@@ -122,7 +134,7 @@ impl<'a> Evm<'a> {
     pub fn call(&mut self, address: Address, calldata: Vec<u8>) -> (u64, Vec<u8>) {
         let (gas_used, output) = self.transact_success_or_panic(TxEnv {
             gas_limit: u64::MAX,
-            transact_to: TransactTo::Call(address),
+            kind: TxKind::Call(address),
             data: calldata.into(),
             ..Default::default()
         });
@@ -132,9 +144,16 @@ impl<'a> Evm<'a> {
         }
     }
 
-    fn transact_success_or_panic(&mut self, tx: TxEnv) -> (u64, Output) {
-        *self.evm.tx_mut() = tx;
-        let result = self.evm.transact_commit().unwrap();
+    fn transact_success_or_panic(&mut self, mut tx: TxEnv) -> (u64, Output) {
+        // Pick up the current nonce from DB for the default caller
+        if let Ok(Some(info)) = self.evm.db_mut().basic(BENCH_CALLER) {
+            tx.nonce = info.nonce;
+        } else {
+            tx.nonce = 0;
+        }
+        // Ensure caller is consistent
+        tx.caller = BENCH_CALLER;
+        let result = self.evm.transact_commit(tx).unwrap();
         match result {
             ExecutionResult::Success {
                 gas_used,

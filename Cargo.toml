@@ -20,12 +20,13 @@ ark-poly = { git = "https://github.com/arkworks-rs/algebra" }
 ark-relations = { git = "https://github.com/arkworks-rs/snark" }
 ark-snark = { git = "https://github.com/arkworks-rs/snark" }
 ark-crypto-primitives = { git = "https://github.com/winderica/crypto-primitives", rev = "af003fc" }
-ark-r1cs-std = { git = "https://github.com/winderica/r1cs-std", rev = "ae8283a" }         # "sw-fix-updated" branch
+ark-r1cs-std = { git = "https://github.com/winderica/r1cs-std", rev = "ae8283a" }                   # "sw-fix-updated" branch
 ark-std = { git = "https://github.com/arkworks-rs/std" }
 ark-poly-commit = { git = "https://github.com/arkworks-rs/poly-commit" }
 
 
 # Curve crates also need git versions
+ark-bls12-381 = { git = "https://github.com/arkworks-rs/algebra" }
 ark-bn254 = { git = "https://github.com/arkworks-rs/algebra" }
 ark-grumpkin = { git = "https://github.com/arkworks-rs/algebra" }
 ark-pallas = { git = "https://github.com/arkworks-rs/algebra" }
@@ -57,7 +58,7 @@ serde = { version = "^1.0.0" }
 serde_json = { version = "^1.0.0" }
 sha3 = { version = "0.10" }
 rayon = { version = "1" }
-revm = { version = "19.5.0", default-features = false }
+revm = { version = "29.0.1", default-features = false }
 thiserror = { version = "1.0" }
 wasmer = { version = "6.1.0-rc.3", default-features = false }
 
