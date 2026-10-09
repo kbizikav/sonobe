@@ -28,29 +28,21 @@ variable {p1 p2 : ℕ} [Fact p1.Prime] [Fact p2.Prime]
   [Module (ZMod p1) W.toAffine.Point]
 
 theorem cfSound_of_circuit
-    (T : Setup2 (ZMod p1) W.toAffine.Point (ZMod p2) G2 S (ZMod p2 × ZMod p2))
-    (hl : T.l2 = 7) (hco : T.coords = coordsOf W)
-    (hcfx : ∀ n c0 c1 c2, T.cfX n c0 c1 c2 = fun i => cfVec n c0 c1 c2 (Fin.cast hl i))
+    (T : Setup2 (ZMod p1) W.toAffine.Point (ZMod p2) G2 S (ZMod p2 × ZMod p2) 7)
+    (hco : T.coords = coordsOf W)
+    (hcfx : ∀ n c0 c1 c2, T.cfX n c0 c1 c2 = cfVec n c0 c1 c2)
     (hsmul : ∀ (n : ℕ) (P : W.toAffine.Point), (n : ZMod p1) • P = n • P)
     {G : ZMod p2 × ZMod p2} (hG : W.toAffine.Equation G.1 G.2)
-    (circ : Circuit (ZMod p2) T.l2 T.nw2 (CFWit (ZMod p2))) (hcomp : circ.Compiles T.k2.r1cs)
+    (circ : Circuit (ZMod p2) 7 T.nw2 (CFWit (ZMod p2))) (hcomp : circ.Compiles T.k2.r1cs)
     (hrel : ∀ x ω, circ.rel x ω ↔
-      CFRel W 128 G (x (Fin.cast hl.symm 0)) (x (Fin.cast hl.symm 1)) (x (Fin.cast hl.symm 2))
-        (x (Fin.cast hl.symm 3)) (x (Fin.cast hl.symm 4)) (x (Fin.cast hl.symm 5))
-        (x (Fin.cast hl.symm 6)) ω)
+      CFRel W 128 G (x 0) (x 1) (x 2) (x 3) (x 4) (x 5) (x 6) ω)
     (hb : W.a₆ ≠ 0) (h2 : (2 : ZMod p2) ≠ 0)
     (hnr : ∀ e : ZMod p2, e ^ 3 + W.a₄ * e + W.a₆ ≠ 0) {r : ℕ}
     (hord : ∀ P : W.toAffine.Point, P ≠ 0 → addOrderOf P = r)
     (hrn : 2 ^ 128 < r) (hnp : 2 ^ 128 ≤ p2) : T.CFSound := by
   intro cw cu hinc n c0 c1 c2 hn hx
   have hrel' := (hrel _ _).mp (circ.rel_of_sat hcomp hinc.1)
-  have hx' : ∀ j : Fin 7, cu.x (Fin.cast hl.symm j) = cfVec n c0 c1 c2 j := by
-    intro j
-    have := congrFun hx (Fin.cast hl.symm j)
-    rw [hcfx] at this
-    simpa using this
-  simp only [hx'] at hrel'
-  have hcv : ∀ j : Fin 7, cfVec n c0 c1 c2 j = cfVec n c0 c1 c2 j := fun _ => rfl
+  rw [hx, hcfx] at hrel'
   obtain ⟨hlt, P0, P1, P2, e0, e1, e2, hP⟩ := cf_sound_pts W hb h2 hnr hord (by norm_num) hrn hnp hG
     (by simpa [cfVec] using hrel')
   have hval : ((n : ZMod p2)).val = n := ZMod.val_natCast_of_lt (lt_of_lt_of_le hn hnp)

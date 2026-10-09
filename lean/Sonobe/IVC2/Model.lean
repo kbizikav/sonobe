@@ -32,12 +32,11 @@ structure RawIU (F C : Type*) where
   cmW : C
   x : Fin 1 → F
 
-structure Setup2 (F1 G1 F2 G2 S C1 : Type*) [Field F1] [AddCommGroup G1] [Module F1 G1]
+structure Setup2 (F1 G1 F2 G2 S C1 : Type*) (l2 : ℕ) [Field F1] [AddCommGroup G1] [Module F1 G1]
     [Field F2] [AddCommGroup G2] [Module F2 G2] where
   m1 : ℕ
   nw1 : ℕ
   m2 : ℕ
-  l2 : ℕ
   nw2 : ℕ
   k1 : Key F1 G1 m1 1 nw1
   k2 : Key F2 G2 m2 l2 nw2
@@ -58,7 +57,7 @@ structure Setup2 (F1 G1 F2 G2 S C1 : Type*) [Field F1] [AddCommGroup G1] [Module
   /-- the challenge is `< 2^128` -/
   ch1n_small : ∀ pp U u π, ch1n pp U u π < 2 ^ 128
 
-variable (T : Setup2 F1 G1 F2 G2 S C1)
+variable {l2 : ℕ} (T : Setup2 F1 G1 F2 G2 S C1 l2)
 
 /-- The primary challenge as a field element. -/
 def Setup2.ch1 (pp : F1) (U : RawRU F1 C1) (u : RawIU F1 C1) (π : C1) : F1 := (T.ch1n pp U u π : F1)

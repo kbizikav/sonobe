@@ -33,3 +33,4 @@ import Sonobe.Circuit.Emulated.Absorb
 import Sonobe.Circuit.Emulated.Canon
 import Sonobe.Circuit.FS2
 import Sonobe.Circuit.Hash
+import Sonobe.Circuit.Augmented

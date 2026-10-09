@@ -20,7 +20,7 @@ open Nova IVC
 open scoped Classical
 
 variable {F1 G1 F2 G2 S C1 : Type*} [Field F1] [AddCommGroup G1] [Module F1 G1]
-  [Field F2] [AddCommGroup G2] [Module F2 G2] (T : Setup2 F1 G1 F2 G2 S C1)
+  [Field F2] [AddCommGroup G2] [Module F2 G2] {l2 : ℕ} (T : Setup2 F1 G1 F2 G2 S C1 l2)
 
 /-- IVC proof `(W, U, w, u, cf_W, cf_U)`. -/
 structure Proof2 where
@@ -29,7 +29,7 @@ structure Proof2 where
   w : IncomingWitness F1 T.nw1
   u : IncomingInstance G1 F1 1
   cfW : RunningWitness F2 T.m2 T.nw2
-  cfU : RunningInstance F2 G2 T.l2
+  cfU : RunningInstance F2 G2 l2
 
 /-- What the verifier checks for `n ≥ 1` steps (mod.rs:460-474). -/
 def Setup2.Good (n : ℕ) (z0 zn : S) (P : Proof2 T) : Prop :=
@@ -39,7 +39,7 @@ def Setup2.Good (n : ℕ) (z0 zn : S) (P : Proof2 T) : Prop :=
 def Setup2.AugSound : Prop :=
   ∀ (w' : IncomingWitness F1 T.nw1) (u' : IncomingInstance G1 F1 1), T.k1.Incoming u' w' →
     ∃ (pp i : F1) (z0 zi : S) (U : RawRU F1 C1) (uin : RawIU F1 C1) (π : C1)
-      (cfU : RunningInstance F2 G2 T.l2) (cu0 cu1 : IncomingInstance G2 F2 T.l2)
+      (cfU : RunningInstance F2 G2 l2) (cu0 cu1 : IncomingInstance G2 F2 l2)
       (cπ0 cπ1 : G2) (cρ0 cρ1 : F2) (pe pw : C1),
       (i = 0 → z0 = zi) ∧ uin.x = (fun _ => T.hs pp i z0 zi U cfU) ∧
       cu0.x = T.cfX (T.ch1n pp U uin π) U.cmE π pe ∧
@@ -47,11 +47,11 @@ def Setup2.AugSound : Prop :=
       u'.x = (fun _ => T.hs pp (i + 1) z0 (T.step zi)
         (if i = 0 then T.rawOf (dummyRU F1 G1 1)
           else ⟨pe, U.u + T.ch1 pp U uin π, pw, U.x + T.ch1 pp U uin π • uin.x⟩)
-        (if i = 0 then dummyRU F2 G2 T.l2
+        (if i = 0 then dummyRU F2 G2 l2
           else foldInstance cρ1 cπ1 (foldInstance cρ0 cπ0 cfU cu0) cu1))
 
 def Setup2.CFSound : Prop :=
-  ∀ (cw : IncomingWitness F2 T.nw2) (cu : IncomingInstance G2 F2 T.l2), T.k2.Incoming cu cw →
+  ∀ (cw : IncomingWitness F2 T.nw2) (cu : IncomingInstance G2 F2 l2), T.k2.Incoming cu cw →
     ∀ (n : ℕ) (c0 c1 c2 : C1), n < 2 ^ 128 → cu.x = T.cfX n c0 c1 c2 →
       ∃ P0 P1 P2 : G1, T.coords P0 = c0 ∧ T.coords P1 = c1 ∧ T.coords P2 = c2 ∧
         P2 = P0 + (n : F1) • P1
@@ -68,7 +68,7 @@ def Setup2.Fork1 : Prop :=
       T.k1.Running (foldInstance ρ₂ π U u) W₂ ∧ T.k1.Running (foldInstance ρ₃ π U u) W₃
 
 def Setup2.Fork2 : Prop :=
-  ∀ (ρ : F2) (U : RunningInstance F2 G2 T.l2) (u : IncomingInstance G2 F2 T.l2) (π : G2)
+  ∀ (ρ : F2) (U : RunningInstance F2 G2 l2) (u : IncomingInstance G2 F2 l2) (π : G2)
     (W : RunningWitness F2 T.m2 T.nw2), T.k2.Running (foldInstance ρ π U u) W →
     ∃ (ρ₁ ρ₂ ρ₃ : F2) (W₁ W₂ W₃ : RunningWitness F2 T.m2 T.nw2),
       ρ₁ ≠ ρ₂ ∧ ρ₁ ≠ ρ₃ ∧ ρ₂ ≠ ρ₃ ∧ T.k2.Running (foldInstance ρ₁ π U u) W₁ ∧
