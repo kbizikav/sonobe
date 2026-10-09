@@ -14,3 +14,4 @@ import Sonobe.Snark.LegoGroth16
 import Sonobe.Decider
 import Sonobe.Circuit.Basic
 import Sonobe.Circuit.Bits
+import Sonobe.Circuit.EC.Affine
