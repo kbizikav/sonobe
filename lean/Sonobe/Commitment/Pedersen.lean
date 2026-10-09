@@ -40,6 +40,12 @@ theorem commit_smul {F G : Type*} [CommSemiring F] [AddCommMonoid G] [Module F G
     ck.commit (a • v) (a * r) = a • ck.commit v r := by
   simp [commit, smul_add, Finset.smul_sum, mul_smul]
 
+/-- Folding step: `commit (v + ρ v') (r + ρ r') = commit v r + ρ • commit v' r'`. -/
+theorem commit_fold {F G : Type*} [CommRing F] [AddCommMonoid G] [Module F G]
+    (ck : PedersenKey F G n) (ρ : F) (v v' : Fin n → F) (r r' : F) :
+    ck.commit (v + ρ • v') (r + ρ * r') = ck.commit v r + ρ • ck.commit v' r' := by
+  rw [commit_add, commit_smul]
+
 /-- A nontrivial discrete-log relation among the generators. Binding is exactly its absence. -/
 def DLRel : Prop :=
   ∃ (c : Fin n → F) (s : F), (c ≠ 0 ∨ s ≠ 0) ∧ ∑ i, c i • ck.g i + s • ck.h = 0
