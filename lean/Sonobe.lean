@@ -26,3 +26,5 @@ import Sonobe.Circuit.Emulated.Alloc
 import Sonobe.Circuit.Emulated.Carry
 import Sonobe.IVC2.Model
 import Sonobe.IVC2.Soundness
+import Sonobe.Circuit.Coords
+import Sonobe.Circuit.CFBridge
