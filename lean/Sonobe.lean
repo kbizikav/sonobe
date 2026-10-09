@@ -35,3 +35,4 @@ import Sonobe.Circuit.FS2
 import Sonobe.Circuit.Hash
 import Sonobe.Circuit.Augmented
 import Sonobe.Circuit.AugSound
+import Sonobe.FinalSoundness
