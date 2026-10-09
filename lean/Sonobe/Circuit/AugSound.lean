@@ -197,7 +197,7 @@ end Sonobe
 namespace Sonobe
 namespace Gadget
 
-open Finset
+open Finset Sonobe.IVC
 open scoped Classical
 
 variable {p1 p2 : ℕ} [Fact p1.Prime] [Fact p2.Prime]
@@ -226,7 +226,7 @@ end Sonobe
 namespace Sonobe
 namespace Gadget
 
-open Finset WeierstrassCurve WeierstrassCurve.Affine Sonobe.IVC2 Sonobe.Nova
+open Finset WeierstrassCurve WeierstrassCurve.Affine Sonobe.IVC2 Sonobe.Nova Sonobe.IVC
 open scoped Classical
 
 noncomputable local instance decEqZModAS2 {p : ℕ} : DecidableEq (ZMod p) :=
@@ -283,6 +283,43 @@ theorem aug_uux_pos {v : AugVars p1 sN} {uux : ZMod p1}
   unfold hsC
   rw [hlist]
 
+/-- The output hash in the base case: everything selected is the zero dummy. -/
+theorem aug_uux_zero {v : AugVars p1 sN} {uux : ZMod p1}
+    (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8)) (hp2pos : 0 < p2) (hi : v.i = 0)
+    (h : AugRel W2 EA sp dS dT pm1 G StepRel v uux) :
+    uux = hsC (p2 := p2) W2 sp dS v.pp (v.i + 1) v.z0 v.nx
+      ⟨(0, 0), 0, (0, 0), fun _ => 0⟩ (dummyRU (ZMod p2) W2.toAffine.Point 7) := by
+  have h32 : 2 ^ 32 ≤ p1 := le_trans (Nat.le_add_right _ _) hp.le
+  obtain ⟨hbc, -⟩ := aug_basecase W2 EA sp dS dT pm1 G StepRel h
+  have hbc1 : v.bc = 1 := by rw [hbc, if_pos hi]
+  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hstp, hN, hM, hA0, hA1,
+    huux⟩ := h
+  rw [hbc1] at hN hM hA0 hA1 huux
+  simp only [selLimbs_one, selPP_one, selF0_one] at hN hM hA0 hA1 huux
+  have e1 : ∀ k : Fin 4, pr (v.aoN k) = [0, 0] := fun k => by
+    rw [pr_ao_eq_encE h32 (canon_zero hp2pos) (hN k), emuV_zero, encE_zero]
+  have e2 : ∀ k : Fin 8, pr (v.aoM k) = [0, 0] := fun k => by
+    rw [pr_ao_eq_encE h32 (canon_zero hp2pos) (hM k), emuV_zero, encE_zero]
+  have e3 : ((v.noM 0).x, (v.noM 0).y) = (0, 0) := by
+    have := coordsOf_pt_affine W2 (zeroPP_onCurve _ _) hA0
+    rw [zeroPP_pt] at this
+    exact this.symm
+  have e4 : ((v.noM 1).x, (v.noM 1).y) = (0, 0) := by
+    have := coordsOf_pt_affine W2 (zeroPP_onCurve _ _) hA1
+    rw [zeroPP_pt] at this
+    exact this.symm
+  rw [huux]
+  unfold hsC
+  have hlist : ([v.i + 1] ++ List.ofFn v.z0 ++ List.ofFn v.nx ++ [0, 0] ++
+      prs v.aoN ++ prs v.aoM ++ pr ((v.noM 0).x, (v.noM 0).y) ++ pr ((v.noM 1).x, (v.noM 1).y)) =
+      [v.i + 1] ++ List.ofFn v.z0 ++ List.ofFn v.nx ++
+        encRU1 p1 p2 ⟨(0, 0), 0, (0, 0), fun _ => 0⟩ ++
+        encRU2 (p2 := p2) W2 (dummyRU (ZMod p2) W2.toAffine.Point 7) := by
+    simp only [encRU1, encRU2, encPtE, prs, dummyRU, e1, e2, e3, e4, encE_zero, List.ofFn_succ,
+      List.ofFn_zero, List.flatMap_cons, List.flatMap_nil, Fin.isValue]
+    simp [pr, coordsOf, encE]
+  rw [hlist]
+
 /-- **`AugSound`, derived from the augmented circuit.** -/
 theorem augSound_of_circuit
     (T : Setup2 (ZMod p1) W1.toAffine.Point (ZMod p2) W2.toAffine.Point (Fin sN → ZMod p1)
@@ -327,7 +364,33 @@ theorem augSound_of_circuit
     rw [hcfx, hch]
     funext j
     fin_cases j <;> simp [SecInc.val, cfI1, cfVec, Uraw, uinRaw, vE, hrv, hn]
-  · sorry
+  · -- the output hash
+    funext j
+    have hj : j = 0 := Subsingleton.elim _ _
+    subst hj
+    have h' := h
+    obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hstp, -⟩ := h'
+    have hnx : v.nx = T.step v.zi := hstep _ _ hstp
+    rw [hhs]
+    by_cases hi : v.i = 0
+    · simp only [if_pos hi]
+      have e := aug_uux_zero W2 EA sp dS dT pm1 G StepRel hp hp2 (Nat.pos_of_ne_zero (by
+        intro h0; have := (Fact.out : p2.Prime).pos; omega)) hi h
+      rw [e, hnx]
+      have : T.rawOf (dummyRU (ZMod p1) W1.toAffine.Point 1) = ⟨(0, 0), 0, (0, 0), fun _ => 0⟩ := by
+        simp [Setup2.rawOf, hco, dummyRU, coordsOf]
+      rw [this]
+    · simp only [if_neg hi]
+      have e := aug_uux_pos W2 EA sp dS dT pm1 G StepRel hsmul2 h2 hnr hord hrn hp hp2 hp2' hG hpm hi h
+      have hfold := (aug_fs2 W2 EA sp dS dT pm1 G StepRel hsmul2 h2 hnr hord hrn hp hp2 hp2' hG hpm h).2.2.2.2
+      obtain ⟨-, -, hrho⟩ := aug_rho W2 EA sp dS dT pm1 G StepRel hp hp2 hpm h
+      rw [e, hnx, ← hfold]
+      simp only [Setup2.ch1, hch, hrho]
+      have hx : ∀ ρ : ZMod p1, (Uraw (p2 := p2) v).x + ρ • (uinRaw (p2 := p2) v).x =
+          fun _ => v.Ux + ρ * v.uxIn := by
+        intro ρ; funext j; simp [Uraw, uinRaw]
+      rw [hx]
+      rfl
 
 end Gadget
 end Sonobe
