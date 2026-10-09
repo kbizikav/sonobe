@@ -763,7 +763,9 @@ mod tests {
         let sig = *selectors.get("verifyDeciderProof").unwrap();
 
         let calldata = D::verify_calldata::<F>(&vk, n, &initial_state, &current_state, &proof)?;
-        assert!(evm.view(addr, sig, &calldata)?.is_success());
+        let result = evm.view(addr, sig, &calldata)?;
+        assert!(result.is_success());
+        eprintln!("decider verify gas: {}", result.gas_used());
 
         // Every word of the calldata is bound by the proof: the step count, the
         // states, the challenge, and the four points the contract folds. A
