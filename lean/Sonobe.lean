@@ -24,3 +24,5 @@ import Sonobe.Circuit.CycleFold
 import Sonobe.Circuit.Emulated.Lt
 import Sonobe.Circuit.Emulated.Alloc
 import Sonobe.Circuit.Emulated.Carry
+import Sonobe.IVC2.Model
+import Sonobe.IVC2.Soundness
