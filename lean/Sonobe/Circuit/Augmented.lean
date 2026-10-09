@@ -112,10 +112,10 @@ variable (W2 : WeierstrassCurve (ZMod p1)) [Short W2] [W2.IsElliptic]
   (EA : EmuArith p1 p2) (sp : SpongeCfg (ZMod p1)) (dS dT : List (ZMod p1))
   (pm1 : ℕ → Bool) (G : ZMod p1 × ZMod p1) (StepRel : (Fin sN → ZMod p1) → (Fin sN → ZMod p1) → Prop)
 
-/-- Constraints of the augmented circuit; `uux` is its public output. -/
-def AugRel (v : AugVars p1 sN) (uux : ZMod p1) : Prop :=
-  -- 1. base case
-  IsZeroRel v.i v.bc v.invI ∧ (∀ k, CondEqRel v.bc (v.z0 k) (v.zi k)) ∧
+/-- The part shared by the augmented and the decider circuit: allocations of the emulated
+coordinates and of the secondary running instance, the hash `u_x = H(i, z₀, zᵢ, U, cf_U)`, and the
+Fiat–Shamir challenge `ρ = challenge_bits(transcript.add(U).add(u).add(π))`. -/
+def FrontRel (v : AugVars p1 sN) : Prop :=
   -- allocations of the emulated coordinates and of the secondary running instance
   (∀ k, TightRel 8 32 (mlimb p2) (v.pa k) (v.pw k)) ∧
   (∀ k, TightRel 8 32 (mlimb p2) (v.sa k) (v.sw k)) ∧
@@ -128,6 +128,25 @@ def AugRel (v : AugVars p1 sN) (uux : ZMod p1) : Prop :=
     ([v.i] ++ List.ofFn v.z0 ++ List.ofFn v.zi ++ [v.Uu, v.Ux] ++ prs v.aoU ++ prs v.aoS ++
       pr ((v.noU 0).x, (v.noU 0).y) ++ pr ((v.noU 1).x, (v.noU 1).y)) ∧
   -- 1.c  ρ = challenge_bits(transcript.add(U).add(u).add(π))
+  (∀ k : Fin 8, EmuAbsRel (v.pa (![0, 1, 2, 3, 6, 7, 4, 5] k)) (v.awT k) (v.aoT k)) ∧
+  v.c = hashOut sp (spInit sp v.pp dT)
+    ([v.Uu, v.Ux] ++ pr (v.aoT 0) ++ pr (v.aoT 1) ++ pr (v.aoT 2) ++ pr (v.aoT 3) ++ [v.uxIn] ++
+      pr (v.aoT 4) ++ pr (v.aoT 5) ++ pr (v.aoT 6) ++ pr (v.aoT 7)) ∧
+  ToBitsRel 254 pm1 v.c v.cb
+
+/-- Constraints of the augmented circuit; `uux` is its public output. -/
+def AugRel (v : AugVars p1 sN) (uux : ZMod p1) : Prop :=
+  -- 1. base case
+  IsZeroRel v.i v.bc v.invI ∧ (∀ k, CondEqRel v.bc (v.z0 k) (v.zi k)) ∧
+  (∀ k, TightRel 8 32 (mlimb p2) (v.pa k) (v.pw k)) ∧
+  (∀ k, TightRel 8 32 (mlimb p2) (v.sa k) (v.sw k)) ∧
+  ValidPP W2 v.sE ∧ ValidPP W2 v.sW ∧
+  (∀ k : Fin 4, EmuAbsRel (v.pa (Fin.castLE (by norm_num) k)) (v.awU k) (v.aoU k)) ∧
+  (∀ k, EmuAbsRel (v.sa k) (v.awS k) (v.aoS k)) ∧
+  AffRel v.sE (v.noU 0) ∧ AffRel v.sW (v.noU 1) ∧
+  v.uxIn = hashOut sp (spInit sp v.pp dS)
+    ([v.i] ++ List.ofFn v.z0 ++ List.ofFn v.zi ++ [v.Uu, v.Ux] ++ prs v.aoU ++ prs v.aoS ++
+      pr ((v.noU 0).x, (v.noU 0).y) ++ pr ((v.noU 1).x, (v.noU 1).y)) ∧
   (∀ k : Fin 8, EmuAbsRel (v.pa (![0, 1, 2, 3, 6, 7, 4, 5] k)) (v.awT k) (v.aoT k)) ∧
   v.c = hashOut sp (spInit sp v.pp dT)
     ([v.Uu, v.Ux] ++ pr (v.aoT 0) ++ pr (v.aoT 1) ++ pr (v.aoT 2) ++ pr (v.aoT 3) ++ [v.uxIn] ++
@@ -148,6 +167,13 @@ def AugRel (v : AugVars p1 sN) (uux : ZMod p1) : Prop :=
     ([v.i + 1] ++ List.ofFn v.z0 ++ List.ofFn v.nx ++
       [selF0 v.bc (v.Uu + rhoOf v.cb), selF0 v.bc (v.uxIn * rhoOf v.cb + v.Ux)] ++
       prs v.aoN ++ prs v.aoM ++ pr ((v.noM 0).x, (v.noM 0).y) ++ pr ((v.noM 1).x, (v.noM 1).y))
+
+omit [Fact p2.Prime] in
+/-- The front part of `AugRel` is `FrontRel`. -/
+theorem AugRel.front {v : AugVars p1 sN} {uux : ZMod p1}
+    (h : AugRel W2 EA sp dS dT pm1 G StepRel v uux) : FrontRel (p2 := p2) W2 sp dS dT pm1 v := by
+  obtain ⟨-, -, a, b, c, d, e, f, g, h, i, j, k, l, -⟩ := h
+  exact ⟨a, b, c, d, e, f, g, h, i, j, k, l⟩
 
 end Gadget
 end Sonobe
