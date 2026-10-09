@@ -18,7 +18,7 @@ use crate::{
     algebra::{
         Val,
         field::{SonobeField, TwoStageFieldVar, emulated::EmulatedFieldVar},
-        group::{CF1, CF2, SonobeCurve, emulated::EmulatedAffineVar},
+        group::{CF1, CF2, EnforceValid, SonobeCurve, emulated::EmulatedAffineVar},
         ops::bits::FromBitsGadget,
     },
     circuits::inputize::Inputize,
@@ -154,7 +154,8 @@ pub trait CommitmentDefGadget: Clone {
         + CondSelectGadget<Self::ConstraintField>
         + AllocVar<<Self::Widget as CommitmentDef>::Commitment, Self::ConstraintField>
         + GR1CSVar<Self::ConstraintField, Value = <Self::Widget as CommitmentDef>::Commitment>
-        + Inputize<Self::ConstraintField>;
+        + Inputize<Self::ConstraintField>
+        + EnforceValid;
     /// [`CommitmentDefGadget::RandomnessVar`] is the in-circuit variable type
     /// for the randomness used in the commitment.
     type RandomnessVar: AllocVar<<Self::Widget as CommitmentDef>::Randomness, Self::ConstraintField>

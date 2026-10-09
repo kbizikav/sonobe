@@ -7,8 +7,9 @@ use ark_ec::{
 };
 use ark_ff::{Field, One, PrimeField, Zero};
 use ark_r1cs_std::{
+    boolean::Boolean,
     convert::ToConstraintFieldGadget,
-    fields::fp::FpVar,
+    fields::{FieldVar, fp::FpVar},
     groups::{CurveVar, curves::short_weierstrass::ProjectiveVar},
 };
 use ark_relations::gr1cs::SynthesisError;
@@ -42,10 +43,45 @@ pub trait SonobeCurve:
         Var: CurveVar<Self, Self::BaseField>
                  + AbsorbableVar<Self::BaseField>
                  + WitnessToPublic
-                 + Inputize<Self::BaseField>,
+                 + Inputize<Self::BaseField>
+                 + EnforceValid,
         EmulatedVar<Self::ScalarField> = EmulatedAffineVar<Self::ScalarField, Self>,
     >
 {
+}
+
+/// [`EnforceValid`] rules out the all-zero projective triple `(0, 0, 0)` in
+/// in-circuit point variables.
+///
+/// The on-curve check performed by `ProjectiveVar::new_witness`,
+/// `Z * (Y^2 - b * Z^2) = X * (X^2 + a * Z^2)`, is also satisfied by `(0, 0, 0)`,
+/// which is not a projective point. The complete addition formula maps it to
+/// `(0, 0, 0)` again, and `to_affine` publishes it as `(0, 0)`, the encoding of
+/// the point at infinity. A prover could thus pass off `P0 + r * P1` as the
+/// identity whenever `P0` is (honestly) the identity.
+///
+/// On the curve, `Z = 0` implies `X = 0`, so forbidding `Y = Z = 0` excludes
+/// exactly the all-zero triple.
+pub trait EnforceValid {
+    /// [`EnforceValid::enforce_valid`] enforces that `self` is not `(0, 0, 0)`.
+    fn enforce_valid(&self) -> Result<(), SynthesisError>;
+}
+
+impl<P: SWCurveConfig<BaseField: PrimeField>> EnforceValid
+    for ProjectiveVar<P, FpVar<P::BaseField>>
+{
+    fn enforce_valid(&self) -> Result<(), SynthesisError> {
+        Boolean::enforce_kary_nand(&[self.y.is_zero()?, self.z.is_zero()?])
+    }
+}
+
+/// Emulated affine points have no projective representation (infinity is
+/// `(0, 0)` and nothing is added to them in-circuit), so there is nothing to
+/// enforce.
+impl<Base: SonobeField, Target: SonobeCurve> EnforceValid for EmulatedAffineVar<Base, Target> {
+    fn enforce_valid(&self) -> Result<(), SynthesisError> {
+        Ok(())
+    }
 }
 
 impl<P: SWCurveConfig<ScalarField: SonobeField, BaseField: SonobeField>> SonobeCurve
@@ -144,5 +180,59 @@ impl<P: SWCurveConfig<BaseField: EVMSerialize>> EVMSerialize for Affine<P> {
 impl<P: SWCurveConfig<BaseField: EVMSerialize>> EVMSerialize for Projective<P> {
     fn to_calldata(&self) -> Vec<u8> {
         self.into_affine().to_calldata()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use ark_bn254::{Fq, G1Projective as G1, g1::Config};
+    use ark_r1cs_std::{alloc::AllocVar, groups::curves::short_weierstrass::ProjectiveVar};
+    use ark_relations::gr1cs::ConstraintSystem;
+    use ark_std::{UniformRand, rand::thread_rng};
+
+    use super::*;
+
+    type PVar = ProjectiveVar<Config, FpVar<Fq>>;
+
+    fn satisfied_after_enforcing(x: Fq, y: Fq, z: Fq) -> bool {
+        let cs = ConstraintSystem::<Fq>::new_ref();
+        let p = PVar::new(
+            FpVar::new_witness(cs.clone(), || Ok(x)).unwrap(),
+            FpVar::new_witness(cs.clone(), || Ok(y)).unwrap(),
+            FpVar::new_witness(cs.clone(), || Ok(z)).unwrap(),
+        );
+        p.enforce_valid().unwrap();
+        cs.is_satisfied().unwrap()
+    }
+
+    #[test]
+    fn test_enforce_valid() {
+        let mut rng = thread_rng();
+        let (x, y) = G1::rand(&mut rng).into_affine().xy().unwrap();
+        let z = Fq::rand(&mut rng);
+
+        // a finite point (also with a non-normalised `z`) and the point at infinity are accepted
+        assert!(satisfied_after_enforcing(x, y, Fq::one()));
+        assert!(satisfied_after_enforcing(x * z, y * z, z));
+        assert!(satisfied_after_enforcing(Fq::zero(), Fq::one(), Fq::zero()));
+        assert!(satisfied_after_enforcing(Fq::zero(), z, Fq::zero()));
+        // the all-zero triple is not a point
+        assert!(!satisfied_after_enforcing(Fq::zero(), Fq::zero(), Fq::zero()));
+    }
+
+    /// `(0, 0, 0)` passes the on-curve check of `ProjectiveVar`, which is why
+    /// [`EnforceValid`] is needed.
+    #[test]
+    fn test_zero_triple_passes_on_curve_check() {
+        let cs = ConstraintSystem::<Fq>::new_ref();
+        let zero = || FpVar::new_witness(cs.clone(), || Ok(Fq::zero())).unwrap();
+        let (x, y, z) = (zero(), zero(), zero());
+        // Z * (Y^2 - b Z^2) = X * (X^2 + a Z^2) as in `new_variable_omit_prime_order_check`
+        let b = <Config as SWCurveConfig>::COEFF_B;
+        let a = <Config as SWCurveConfig>::COEFF_A;
+        let rhs = &x * (x.square().unwrap() + z.square().unwrap() * a);
+        z.mul_equals(&(y.square().unwrap() - z.square().unwrap() * b), &rhs)
+            .unwrap();
+        assert!(cs.is_satisfied().unwrap());
     }
 }

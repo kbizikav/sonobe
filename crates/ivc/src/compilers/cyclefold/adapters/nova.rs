@@ -15,7 +15,7 @@ use sonobe_primitives::utils::evm::serialize::EVMSerialize;
 use sonobe_primitives::{
     algebra::{
         field::emulated::{Bounds, EmulatedFieldVar},
-        group::{CF1, CF2, SonobeCurve, emulated::EmulatedAffineVar},
+        group::{CF1, CF2, EnforceValid, SonobeCurve, emulated::EmulatedAffineVar},
         ops::bits::{FromBits, ToBitsGadgetExt},
     },
     circuits::WitnessToPublic,
@@ -57,6 +57,11 @@ impl<C: SonobeCurve, const CHALLENGE_BITS: usize> CycleFoldCircuit<CF2<C>>
         let rho_bits = rho.to_n_bits_le(CHALLENGE_BITS)?;
 
         let points = Vec::<C::Var>::new_witness(cs.clone(), || Ok(&self.points[..]))?;
+        // Rule out the all-zero triple, which passes the on-curve check but breaks
+        // the completeness of the addition below (see [`EnforceValid`]).
+        for point in &points {
+            point.enforce_valid()?;
+        }
         points.mark_as_public()?;
 
         (points[1].scalar_mul_le(rho_bits.iter())? + &points[0]).mark_as_public()

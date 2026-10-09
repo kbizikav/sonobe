@@ -9,7 +9,9 @@ use ark_r1cs_std::{
 };
 use ark_relations::gr1cs::{ConstraintSystemRef, Namespace, SynthesisError};
 use ark_std::borrow::Borrow;
-use sonobe_primitives::{commitments::CommitmentDefGadget, transcripts::AbsorbableVar};
+use sonobe_primitives::{
+    algebra::group::EnforceValid, commitments::CommitmentDefGadget, transcripts::AbsorbableVar,
+};
 
 use super::{IncomingInstance, RunningInstance};
 use crate::FoldingInstanceVar;
@@ -39,12 +41,17 @@ impl<CM: CommitmentDefGadget> AllocVar<RunningInstance<CM::Widget>, CM::Constrai
         let cs = cs.into().cs();
         let v = f()?;
         let RunningInstance { cm_e, u, cm_w, x } = v.borrow();
-        Ok(Self {
+        let this = Self {
             cm_e: AllocVar::new_variable(cs.clone(), || Ok(cm_e), mode)?,
             u: AllocVar::new_variable(cs.clone(), || Ok(u), mode)?,
             cm_w: AllocVar::new_variable(cs.clone(), || Ok(cm_w), mode)?,
             x: AllocVar::new_variable(cs.clone(), || Ok(&x[..]), mode)?,
-        })
+        };
+        if mode != AllocationMode::Constant {
+            this.cm_e.enforce_valid()?;
+            this.cm_w.enforce_valid()?;
+        }
+        Ok(this)
     }
 }
 
@@ -119,12 +126,15 @@ impl<CM: CommitmentDefGadget> FoldingInstanceVar<CM> for RunningInstanceVar<CM> 
         x: Vec<CM::ScalarVar>,
     ) -> Result<Self, SynthesisError> {
         let cs = cs.into().cs();
-        Ok(Self {
+        let this = Self {
             cm_e: AllocVar::new_witness(cs.clone(), || Ok(&u.cm_e))?,
             u: AllocVar::new_witness(cs.clone(), || Ok(&u.u))?,
             cm_w: AllocVar::new_witness(cs.clone(), || Ok(&u.cm_w))?,
             x,
-        })
+        };
+        this.cm_e.enforce_valid()?;
+        this.cm_w.enforce_valid()?;
+        Ok(this)
     }
 }
 
@@ -149,10 +159,14 @@ impl<CM: CommitmentDefGadget> AllocVar<IncomingInstance<CM::Widget>, CM::Constra
         let cs = cs.into().cs();
         let v = f()?;
         let IncomingInstance { cm_w, x } = v.borrow();
-        Ok(Self {
+        let this = Self {
             cm_w: AllocVar::new_variable(cs.clone(), || Ok(cm_w), mode)?,
             x: AllocVar::new_variable(cs.clone(), || Ok(&x[..]), mode)?,
-        })
+        };
+        if mode != AllocationMode::Constant {
+            this.cm_w.enforce_valid()?;
+        }
+        Ok(this)
     }
 }
 
@@ -217,9 +231,11 @@ impl<CM: CommitmentDefGadget> FoldingInstanceVar<CM> for IncomingInstanceVar<CM>
         x: Vec<CM::ScalarVar>,
     ) -> Result<Self, SynthesisError> {
         let cs = cs.into().cs();
-        Ok(Self {
+        let this = Self {
             cm_w: AllocVar::new_witness(cs.clone(), || Ok(&u.cm_w))?,
             x,
-        })
+        };
+        this.cm_w.enforce_valid()?;
+        Ok(this)
     }
 }
