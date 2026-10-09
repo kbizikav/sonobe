@@ -176,3 +176,41 @@ end Chain
 
 end Gadget
 end Sonobe
+
+namespace Sonobe
+namespace Gadget
+
+open WeierstrassCurve WeierstrassCurve.Affine
+open scoped Classical
+
+variable {F : Type*} [Field F] (W : WeierstrassCurve F) [Short W] [W.IsElliptic]
+
+/-- The constant `zero` point of `ProjectiveVar`: `(0, 1, 0)`. -/
+def zeroPP : PP F := ⟨0, 1, 0⟩
+
+/-- `CondSelectGadget` on projective variables: `c ? t : f`, componentwise. -/
+def selPP (c : F) (t f : PP F) : PP F :=
+  ⟨c * (t.x - f.x) + f.x, c * (t.y - f.y) + f.y, c * (t.z - f.z) + f.z⟩
+
+theorem selPP_one (t f : PP F) : selPP 1 t f = t := by simp [selPP]
+theorem selPP_zero (t f : PP F) : selPP 0 t f = f := by simp [selPP]
+
+theorem zeroPP_onCurve (a b : F) : (zeroPP : PP F).OnCurve a b := by simp [zeroPP, PP.OnCurve]
+theorem zeroPP_not_isZero : ¬ (zeroPP : PP F).IsZero := by simp [zeroPP, PP.IsZero]
+theorem zeroPP_pt : (zeroPP : PP F).pt W = 0 := pt_of_z_zero W rfl
+
+/-- A normalised finite point `(x, y, 1)`. -/
+def finPP (xy : F × F) : PP F := ⟨xy.1, xy.2, 1⟩
+
+theorem finPP_onCurve (hE : W.toAffine.Equation xy.1 xy.2) : (finPP xy).OnCurve W.a₄ W.a₆ := by
+  have := (equation_short W).mp hE
+  simp only [finPP, PP.OnCurve]; linear_combination this
+
+theorem finPP_not_isZero (xy : F × F) : ¬ (finPP xy).IsZero := by simp [finPP, PP.IsZero]
+
+theorem finPP_pt (hE : W.toAffine.Equation xy.1 xy.2) : (finPP xy).pt W = ptOf W xy := by
+  rw [pt_of_equation W (by simp [finPP]) (by simpa [finPP] using hE), ptOf_eq W hE]
+  simp [finPP]
+
+end Gadget
+end Sonobe
