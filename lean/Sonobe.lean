@@ -21,3 +21,4 @@ import Sonobe.Circuit.EC.Convert
 import Sonobe.Circuit.EC.ScalarMul
 import Sonobe.Circuit.EC.ScalarMulSpec
 import Sonobe.Circuit.CycleFold
+import Sonobe.Circuit.Emulated.Lt

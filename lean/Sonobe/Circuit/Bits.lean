@@ -142,6 +142,20 @@ theorem natVal_inj (n : ℕ) (a a' : ℕ → Bool) (h : natVal n a = natVal n a'
     · exact ih hlow i h
     · subst h; exact htop
 
+theorem natVal_mod (a : ℕ → Bool) : ∀ {k N : ℕ}, k ≤ N → natVal N a % 2 ^ k = natVal k a
+  | k, N, h => by
+    induction N, h using Nat.le_induction with
+    | base => exact Nat.mod_eq_of_lt (natVal_lt _ _)
+    | succ N hkN ih =>
+      have e : natVal (N + 1) a = natVal N a + (if a N then 2 ^ N else 0) := by
+        simp [natVal, sum_range_succ]
+      rw [e]
+      have hd : 2 ^ k ∣ (if a N then 2 ^ N else 0) := by
+        split_ifs
+        · exact pow_dvd_pow 2 hkN
+        · exact dvd_zero _
+      rw [Nat.add_mod, Nat.mod_eq_zero_of_dvd hd, add_zero, Nat.mod_mod_of_dvd _ (dvd_refl _), ih]
+
 /-! ### Over `ZMod p` -/
 
 section Field
