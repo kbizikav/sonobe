@@ -134,5 +134,60 @@ theorem aug_rho (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8))
 
 end Basic
 
+/-! ### 2. The two secondary folds -/
+
+section Secondary
+
+variable {v : AugVars p1 sN} {uux : ZMod p1}
+
+/-- The challenge limbs `from_bits_le` are canonical, with the value of the bits. -/
+theorem rho_canon (h32 : 2 ^ 32 < p1) (hp2 : 2 ^ 128 ≤ p2) {bits : ℕ → ZMod p1}
+    (hb : ∀ j < 128, IsBool (bits j)) :
+    Canon p2 (rhoLimbs bits) ∧ emuV p2 (rhoLimbs bits) =
+      ((natVal 128 (fun j => decide (bits j = 1)) : ℕ) : ZMod p2) := by
+  obtain ⟨h1, h2, h3⟩ := rhoLimbs_val h32 bits hb
+  refine ⟨⟨fun k hk => ?_, ?_⟩, by unfold emuV; rw [h3]⟩
+  · by_cases hk4 : k < 4
+    · exact h1 k hk4
+    · rw [h2 k (by omega)]; simp
+  · rw [h3]; exact lt_of_lt_of_le (natVal_lt _ _) hp2
+
+variable [Module (ZMod p2) W2.toAffine.Point]
+
+/-- **The two secondary folds compute `foldInstance` twice.** -/
+theorem aug_fs2 (hsmul : ∀ (n : ℕ) (P : W2.toAffine.Point), (n : ZMod p2) • P = n • P)
+    (h2 : (2 : ZMod p1) ≠ 0) (hnr : ∀ e : ZMod p1, e ^ 3 + W2.a₄ * e + W2.a₆ ≠ 0) {r : ℕ}
+    (hord : ∀ P : W2.toAffine.Point, P ≠ 0 → addOrderOf P = r) (hrn : 2 ^ 128 < r)
+    (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8)) (hp2' : 2 ^ 128 ≤ p2)
+    (hG : W2.toAffine.Equation G.1 G.2) (hpm : natVal 254 pm1 = p1 - 1)
+    (h : AugRel W2 EA sp dS dT pm1 G StepRel v uux) :
+    Canon p2 (v.o2a 0) ∧ (∀ j : Fin 7, Canon p2 (v.o2a j.succ)) ∧
+      ValidPP W2 v.o2E ∧ ValidPP W2 v.o2W ∧
+      (secOf v.o2a v.o2E v.o2W).val W2 =
+        foldInstance ((natVal 128 (fun j => decide (v.rb1 j = 1)) : ℕ) : ZMod p2)
+          (v.cp1.pt W2)
+          (foldInstance ((natVal 128 (fun j => decide (v.rb0 j = 1)) : ℕ) : ZMod p2)
+            (v.cp0.pt W2) ((secOf v.sa v.sE v.sW).val W2) ((cfI0 v).val W2))
+          ((cfI1 v).val W2) := by
+  have h32 : 2 ^ 32 < p1 := lt_of_lt_of_le (by omega : 2 ^ 32 < 2 ^ 32 + 2 ^ 33) hp.le
+  obtain ⟨hbool, -⟩ := aug_rho W2 EA sp dS dT pm1 G StepRel hp hp2 hpm h
+  obtain ⟨cp, cs⟩ := aug_canon W2 EA sp dS dT pm1 G StepRel hp hp2 h
+  obtain ⟨-, -, -, -, hsE, hsW, -, -, -, -, -, -, -, -, hc0, hc1, hcp0, hcp1, hF1, hF2, -⟩ := h
+  obtain ⟨hrc, hrv⟩ := rho_canon h32 hp2' hbool
+  have hI0 : ∀ j, Canon p2 ((cfI0 v).x j) := by
+    intro j; fin_cases j <;> simp [cfI0, hrc, cp]
+  have hI1 : ∀ j, Canon p2 ((cfI1 v).x j) := by
+    intro j; fin_cases j <;> simp [cfI1, hrc, cp]
+  obtain ⟨o1u, o1x, vE1, vW1, hv1⟩ := fs2_sound W2 hsmul EA h2 hnr hord hrn h32 hG
+    (U := secOf v.sa v.sE v.sW) (I := cfI0 v) (π := v.cp0) (bits := v.rb0)
+    (O := secOf v.o1a v.o1E v.o1W) (cs 0) (fun j => cs j.succ) hI0 hsE hsW hc0 hcp0 hF1
+  obtain ⟨o2u, o2x, vE2, vW2, hv2⟩ := fs2_sound W2 hsmul EA h2 hnr hord hrn h32 hG
+    (U := secOf v.o1a v.o1E v.o1W) (I := cfI1 v) (π := v.cp1) (bits := v.rb1)
+    (O := secOf v.o2a v.o2E v.o2W) o1u o1x hI1 vE1 vW1 hc1 hcp1 hF2
+  refine ⟨o2u, o2x, vE2, vW2, ?_⟩
+  rw [hv2, hv1]
+
+end Secondary
+
 end Gadget
 end Sonobe

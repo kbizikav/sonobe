@@ -100,6 +100,14 @@ def secOf {F : Type*} (a : Fin 8 → ℕ → F) (E W : PP F) : SecVar F := ⟨a 
 /-- The primary challenge as a field element. -/
 def rhoOf {p1 : ℕ} (cb : Fin 254 → ZMod p1) : ZMod p1 := ∑ j ∈ range 128, cbN cb j * 2 ^ j
 
+/-- The CycleFold incoming instances `cf_u` built by `to_cyclefold_inputs`
+(adapters/nova.rs:94-126): public inputs `(ρ, P₀, P₁, P₂)` as emulated variables. -/
+def cfI0 (v : AugVars p1 sN) : SecInc (ZMod p1) :=
+  ⟨![rhoLimbs (cbN v.cb), v.pa 0, v.pa 1, v.pa 4, v.pa 5, v.pa 8, v.pa 9], v.c0W⟩
+
+def cfI1 (v : AugVars p1 sN) : SecInc (ZMod p1) :=
+  ⟨![rhoLimbs (cbN v.cb), v.pa 2, v.pa 3, v.pa 6, v.pa 7, v.pa 10, v.pa 11], v.c1W⟩
+
 variable (W2 : WeierstrassCurve (ZMod p1)) [Short W2] [W2.IsElliptic]
   (EA : EmuArith p1 p2) (sp : SpongeCfg (ZMod p1)) (dS dT : List (ZMod p1))
   (pm1 : ℕ → Bool) (G : ZMod p1 × ZMod p1) (StepRel : (Fin sN → ZMod p1) → (Fin sN → ZMod p1) → Prop)
@@ -128,12 +136,8 @@ def AugRel (v : AugVars p1 sN) (uux : ZMod p1) : Prop :=
   -- 2. CycleFold side: the incoming instances have public inputs (ρ, P₀, P₁, P₂) and the
   --    secondary folds
   ValidPP W2 v.c0W ∧ ValidPP W2 v.c1W ∧ v.cp0.OnCurve W2.a₄ W2.a₆ ∧ v.cp1.OnCurve W2.a₄ W2.a₆ ∧
-  FS2Rel W2 EA G (secOf v.sa v.sE v.sW)
-    ⟨![rhoLimbs (cbN v.cb), v.pa 0, v.pa 1, v.pa 4, v.pa 5, v.pa 8, v.pa 9], v.c0W⟩ v.cp0 v.rb0
-    (secOf v.o1a v.o1E v.o1W) ∧
-  FS2Rel W2 EA G (secOf v.o1a v.o1E v.o1W)
-    ⟨![rhoLimbs (cbN v.cb), v.pa 2, v.pa 3, v.pa 6, v.pa 7, v.pa 10, v.pa 11], v.c1W⟩ v.cp1 v.rb1
-    (secOf v.o2a v.o2E v.o2W) ∧
+  FS2Rel W2 EA G (secOf v.sa v.sE v.sW) (cfI0 v) v.cp0 v.rb0 (secOf v.o1a v.o1E v.o1W) ∧
+  FS2Rel W2 EA G (secOf v.o1a v.o1E v.o1W) (cfI1 v) v.cp1 v.rb1 (secOf v.o2a v.o2E v.o2W) ∧
   -- 3. next state
   StepRel v.zi v.nx ∧
   -- 4. uu_x = H(i+1, z₀, z_{i+1}, UU, cf_UU) with the dummies selected in the base case
