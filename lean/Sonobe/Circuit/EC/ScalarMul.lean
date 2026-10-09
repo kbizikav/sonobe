@@ -102,6 +102,22 @@ theorem x_ne_of_nsmul {P₁ P₂ : F × F} (h₁ : W.toAffine.Equation P₁.1 P�
     have := Nat.le_of_dvd (by omega) hd
     omega
 
+/-- One doubling step `m ↦ 2 m` of the chain. -/
+theorem dbl_step (h2 : (2 : F) ≠ 0) (hnr : ∀ e : F, e ^ 3 + W.a₄ * e + W.a₆ ≠ 0) {i : ℕ}
+    {m m' : F × F} {l : F} (he : W.toAffine.Equation m.1 m.2) (hp : ptOf W m = 2 ^ i • q)
+    (hD : DblRel W.a₄ m m' l) :
+    W.toAffine.Equation m'.1 m'.2 ∧ ptOf W m' = 2 ^ (i + 1) • q := by
+  obtain ⟨hl, hx, hy⟩ := hD
+  have hy0 : m.2 ≠ 0 := by
+    intro h0
+    apply hnr m.1
+    have := (equation_short W).mp he
+    rw [h0] at this; linear_combination -this
+  obtain ⟨h₃, hsum⟩ := double_spec W h2 he hy0 hl hx hy
+  refine ⟨h₃, ?_⟩
+  rw [ptOf_eq W h₃, ← hsum, ← ptOf_eq W he, hp, ← add_nsmul, pow_succ]
+  congr 1; ring
+
 /-- **The double-and-add chain computes `kv · Q`**, with no exceptional case. -/
 theorem chain_sound (h2 : (2 : F) ≠ 0) (hnr : ∀ e : F, e ^ 3 + W.a₄ * e + W.a₆ ≠ 0)
     {n : ℕ} {b : ℕ → F} {Q : F × F} {acc m tmp : ℕ → F × F} {lamA lamD : ℕ → F}
@@ -119,20 +135,9 @@ theorem chain_sound (h2 : (2 : F) ≠ 0) (hnr : ∀ e : F, e ^ 3 + W.a₄ * e + 
     rcases i with _ | i
     · exact hD0
     · exact (hstep (i + 1) (by omega) hi).2.2
-  -- doubling step
   have dbl : ∀ i < n, W.toAffine.Equation (m i).1 (m i).2 → ptOf W (m i) = 2 ^ i • q →
-      W.toAffine.Equation (m (i + 1)).1 (m (i + 1)).2 ∧ ptOf W (m (i + 1)) = 2 ^ (i + 1) • q := by
-    intro i hi he hp
-    obtain ⟨hl, hx, hy⟩ := hD i hi
-    have hy0 : (m i).2 ≠ 0 := by
-      intro h0
-      apply hnr (m i).1
-      have := (equation_short W).mp he
-      rw [h0] at this; linear_combination -this
-    obtain ⟨h₃, hsum⟩ := double_spec W h2 he hy0 hl hx hy
-    refine ⟨h₃, ?_⟩
-    rw [ptOf_eq W h₃, ← hsum, ← ptOf_eq W he, hp, ← add_nsmul, pow_succ]
-    congr 1; ring
+      W.toAffine.Equation (m (i + 1)).1 (m (i + 1)).2 ∧ ptOf W (m (i + 1)) = 2 ^ (i + 1) • q :=
+    fun i hi he hp => dbl_step W q hq h2 hnr he hp (hD i hi)
   intro i
   induction i with
   | zero =>
