@@ -28,3 +28,5 @@ import Sonobe.IVC2.Model
 import Sonobe.IVC2.Soundness
 import Sonobe.Circuit.Coords
 import Sonobe.Circuit.CFBridge
+import Sonobe.Circuit.MulAdd
+import Sonobe.Circuit.Emulated.Absorb
