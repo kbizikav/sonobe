@@ -37,3 +37,4 @@ import Sonobe.Circuit.Augmented
 import Sonobe.Circuit.AugSound
 import Sonobe.FinalSoundness
 import Sonobe.IVC2.Decider
+import Sonobe.Circuit.Decider.PedersenOpen
