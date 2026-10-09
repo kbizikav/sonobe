@@ -39,3 +39,6 @@ import Sonobe.FinalSoundness
 import Sonobe.IVC2.Decider
 import Sonobe.Circuit.Decider.PedersenOpen
 import Sonobe.Circuit.Decider.Primary
+import Sonobe.Snark.CPSound
+import Sonobe.EVM.Decider
+import Sonobe.FinalDecider

@@ -9,8 +9,12 @@ hypotheses of the theorems that use them, never axioms.
 `Gadget.ivc_sound_of_circuits` (`FinalSoundness.lean`): an accepted `(n+1)`-step Nova + CycleFold IVC
 proof certifies `z_{n+1} = F^{n+1}(z₀)`, where the statements `AugSound` / `CFSound` — *what a satisfying
 assignment of the augmented / CycleFold circuit means* — are **derived from constraint-level models of
-the Rust gadgets** (`Circuit/*`), not assumed. The decider (`IVC2/Decider.lean`) reduces to the same
-statement.
+the Rust gadgets** (`Circuit/*`), not assumed.
+
+`Gadget.evm_decider_sound` (`FinalDecider.lean`): if the generated **EVM contract** accepts a call
+`(i, z₀, zᵢ, challenge, U.cm_e, U.cm_w, u.cm_w, cm_t, proof)` then `zᵢ = F^i(z₀)`. The decider circuit
+(`Circuit/Decider`) and the contract (`EVM/Decider`) are modelled, so the former hypothesis `cpSound`
+is gone; the only assumption on the CP-SNARK is `LegoGroth16.CPKnowledgeSound`.
 
 ## Layers
 
@@ -36,6 +40,12 @@ statement.
 | `Emulated/{Lt,Alloc,Carry,Canon,Absorb}` | `enforce_lt`, `Tight` alloc, carry chain of `enforce_equal_unaligned`, absorb | canonical limbs; integer lifting; absorbed pair `[V mod 2^253, V / 2^253]` |
 | `FS2` | `FS2::Gadget::verify` | secondary fold = `foldInstance` (modulo arithmetic: `EmuArith`) |
 | `Hash`, `Augmented`, `AugSound` | `compute_next_state` | **`AugSound` derived** |
+| `EC/ScalarMulSpec` (`scalar_mul254_sound`) | `scalar_mul_le`, 254-bit scalars (252 affine bits + 2 complete-addition steps) | = `ρ·P` |
+| `Decider/PedersenOpen` | `PedersenGadget<C2,true>::open` (msm, constant generators, `enforce_equal`) | cm = Pedersen commitment of the emulated limbs (`open_sound`) |
+| `Decider/Primary` | `CycleFoldBasedIVCDeciderCircuit::generate_constraints` | `dec_sound`: `i ≠ 0`, `u_x`, challenge, packed public points, relaxed R1CS of `UU`, secondary relaxed R1CS + openings |
+| `Snark/CPSound` | `LegoGroth16::verify` | `Accepts`, `CPKnowledgeSound` |
+| `EVM/Decider` | `cyclefold_based_ivc_decider.sol`, `legogroth16.sol` | precompiles as partial functions, `DeciderAccepts`; `old_accepts_retarget` (pre-fix contract) |
+| `FinalDecider` | | **`evm_decider_sound`** |
 
 ## Rust change made on the way
 `EnforceValid` (`primitives/src/algebra/group/mod.rs`, commit `b84a16a`): ark-r1cs-std's on-curve check
@@ -43,6 +53,16 @@ statement.
 `to_affine` publishes as `(0,0)` = identity. A prover could present `P₀ + ρ·P₁` as the identity whenever `P₀`
 is. The fix forbids `y = z = 0` on CycleFold witness points and on running/incoming instance commitments.
 The Lean `CycleFold` model is of the fixed circuit.
+
+## Second Rust change: bind the decider's points to the circuit
+Commit `5097342`. The decider circuit did not tie the verifier's folded commitments to its own `U`, `u`,
+`π`: the calldata points `U.cm_e, U.cm_w, u.cm_w, cm_t` were never inputs of the circuit, and since the
+relaxed-R1CS slack `e` is free, a prover could pick `U.cm_e := c − ρ·cm_t` after the fact
+(`EVM.old_accepts_retarget` formalises this freedom; the native verifier needed ≈2^128 grinding because
+`U` enters the hash). The circuit now exposes those four points as public inputs, **packed** (two field
+elements per coordinate, `[V mod 2^253, V >> 253]`, the same encoding as `Absorbable`), which keeps the
+number of public inputs below the previous one (24 instead of 32 for the points), and the verifier folds
+them with the circuit's own challenge. `LegoGroth16::verify` also rejects wrongly sized inputs.
 
 ## Findings that shaped the model
 * The augmented circuit allocates primary commitments as `EmulatedAffineVar` (range-checked, **no curve
@@ -62,8 +82,16 @@ The Lean `CycleFold` model is of the fixed circuit.
 * **`EmuArith`**: soundness of the emulated `modulo` arithmetic (`u+ρ`, `x·ρ+x`) — canonical allocation,
   `enforce_lt` and carry lifting are proved (`Circuit/Emulated`), the operation-specific static-bound
   argument is the one remaining emulated-field assumption.
+* **`EmuR1CS`** (`Circuit/Decider/Primary`): the emulated-field relaxed R1CS check of the CycleFold
+  instance (`evaluate_r1cs` + `enforce_equivalent` over `EmulatedFieldVar`) is sound for canonical inputs —
+  the decider's counterpart of `EmuArith`.
+* **`LegoGroth16.CPKnowledgeSound`** (decider only): an accepted LegoGroth16 proof yields a satisfying
+  assignment of the decider R1CS whose committed blocks (`WW.e`, `WW.w`) open the commitments. Also
+  trusted: the order of committed variables (`CommittedCache`, `pedersen.rs:435`), the decode of
+  precompile inputs (`EVM.decodeG1`), and that constants (`dk2`) satisfy the scalar-mul chain relations
+  they are computed from.
 * `HsInj` (collision resistance of the state hash incl. `pp_hash`), `¬DLRel` (binding), `Fork1/2`
-  (rewinding / forking lemma), `CastOK`, `cpSound` (LegoGroth16 knowledge soundness, decider only).
+  (rewinding / forking lemma), `CastOK`.
 * Curve facts: prime group order `r > 2^128`, no 2-torsion, `b ≠ 0`; field-size inequalities.
 * Not derived from circuits: completeness of the augmented/CycleFold circuits (`AugComplete`,
   `CFComplete` in `IVC`), the step circuit (`StepRel`), and the secondary-fold challenge derivation

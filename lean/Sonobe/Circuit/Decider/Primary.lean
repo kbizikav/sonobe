@@ -91,12 +91,12 @@ variable (W2 : WeierstrassCurve (ZMod p1)) [Short W2] [W2.IsElliptic]
   {m1 nw1 m2 nw2 : ℕ}
   (R1 : R1CS (ZMod p1) m1 1 nw1) (R2 : R1CS (ZMod p2) m2 7 nw2) (EM : EmuR1CS p1 p2 R2)
   (sp : SpongeCfg (ZMod p1)) (dS dT : List (ZMod p1)) (pm1 : ℕ → Bool) (G : ZMod p1 × ZMod p1)
-  (PE PW : PedConst p1)
+  (PE PW : PedConst p1) (pph : ZMod p1)
 
 /-- Constraints of the decider circuit. -/
 def DecRel (d : DecWit p1 sN m1 nw1 m2 nw2) (x : DecPub p1 sN) : Prop :=
   -- i ≠ 0
-  d.v.i * d.v.invI = 1 ∧
+  d.v.i * d.v.invI = 1 ∧ d.v.pp = pph ∧
   -- public inputs
   d.v.i = x.i ∧ d.v.z0 = x.z0 ∧ d.v.zi = x.zi ∧ x.ch = d.v.c ∧
   -- allocations, `u_x`, transcript and challenge
@@ -143,7 +143,7 @@ theorem dec_sound
     (hgE : ∀ i < m2, (PE.g i).OnCurve W2.a₄ W2.a₆) (hhE : PE.h.OnCurve W2.a₄ W2.a₆)
     (hgW : ∀ i < nw2, (PW.g i).OnCurve W2.a₄ W2.a₆) (hhW : PW.h.OnCurve W2.a₄ W2.a₆)
     {d : DecWit p1 sN m1 nw1 m2 nw2} {x : DecPub p1 sN}
-    (h : DecRel W2 R1 R2 EM sp dS dT pm1 G PE PW d x) :
+    (h : DecRel W2 R1 R2 EM sp dS dT pm1 G PE PW pph d x) :
     d.v.i ≠ 0 ∧ x.i = d.v.i ∧ x.z0 = d.v.z0 ∧ x.zi = d.v.zi ∧
     -- the public points are the encodings of the coordinates
     (∀ k, pr (x.pt k) = encE p1 p2 (vE d.v (pubIdx k))) ∧
@@ -160,8 +160,8 @@ theorem dec_sound
     (PedersenKey.mk (F := ZMod p2) (fun i : Fin m2 => (PE.g i).pt W2) (PE.h.pt W2)).Opens
       (fun i => emuV p2 (d.cwe i)) (emuV p2 d.cre) (d.v.sE.pt W2) ∧
     (PedersenKey.mk (F := ZMod p2) (fun i : Fin nw2 => (PW.g i).pt W2) (PW.h.pt W2)).Opens
-      (fun i => emuV p2 (d.cww i)) (emuV p2 d.crw) (d.v.sW.pt W2) := by
-  obtain ⟨hi, hxi, hxz, hxzi, hxc, hfront, hpub, hr1, tE, tW, tre, trw, hem, hoE, hoW⟩ := h
+      (fun i => emuV p2 (d.cww i)) (emuV p2 d.crw) (d.v.sW.pt W2) ∧ d.v.pp = pph := by
+  obtain ⟨hi, hpp, hxi, hxz, hxzi, hxc, hfront, hpub, hr1, tE, tW, tre, trw, hem, hoE, hoW⟩ := h
   have h32 : 2 ^ 32 ≤ p1 := le_trans (Nat.le_add_right _ _) hp.le
   obtain ⟨cp, cs⟩ := front_canon W2 sp dS dT pm1 hp hp2 hfront
   obtain ⟨hbool, hn128, hrho⟩ := front_rho W2 sp dS dT pm1 hp hp2 hpm hfront
@@ -169,7 +169,7 @@ theorem dec_sound
   have hvalid := hfront
   obtain ⟨-, -, hvE, hvW, -⟩ := hvalid
   refine ⟨?_, hxi.symm, hxz.symm, hxzi.symm, ?_, front_ux W2 sp dS dT pm1 hp hp2 hfront, hrho,
-    ?_, hr1, ?_, ?_, ?_⟩
+    ?_, hr1, ?_, ?_, ?_, hpp⟩
   · intro h0; rw [h0, zero_mul] at hi; exact zero_ne_one hi
   · intro k
     obtain ⟨ha, hk⟩ := hpub k
