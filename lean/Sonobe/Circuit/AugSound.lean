@@ -49,11 +49,16 @@ theorem aug_basecase (h : AugRel W2 EA sp dS dT pm1 G StepRel v uux) :
   have hb1 : v.bc = 1 := by rw [hb, if_pos hi]
   exact condEq_sound hb1 (hc k)
 
+theorem front_canon (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8))
+    (h : FrontRel (p2 := p2) W2 sp dS dT pm1 v) :
+    (∀ k, Canon p2 (v.pa k)) ∧ (∀ k, Canon p2 (v.sa k)) := by
+  obtain ⟨h2, h3, -⟩ := h
+  exact ⟨fun k => tight_canon hp hp2 (h2 k), fun k => tight_canon hp hp2 (h3 k)⟩
+
 theorem aug_canon (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8))
     (h : AugRel W2 EA sp dS dT pm1 G StepRel v uux) :
-    (∀ k, Canon p2 (v.pa k)) ∧ (∀ k, Canon p2 (v.sa k)) := by
-  obtain ⟨-, -, h2, h3, -⟩ := h
-  exact ⟨fun k => tight_canon hp hp2 (h2 k), fun k => tight_canon hp hp2 (h3 k)⟩
+    (∀ k, Canon p2 (v.pa k)) ∧ (∀ k, Canon p2 (v.sa k)) :=
+  front_canon W2 sp dS dT pm1 hp hp2 h.front
 
 /-- An absorbed emulated variable is `encE` of its value. -/
 theorem pr_ao_eq_encE {a : ℕ → ZMod p1} {w : AbsWit p1} {o : ZMod p1 × ZMod p1}
@@ -62,13 +67,13 @@ theorem pr_ao_eq_encE {a : ℕ → ZMod p1} {w : AbsWit p1} {o : ZMod p1 × ZMod
   simp only [pr, encE, emuV_val hc, h1, h2]
 
 /-- **The hash `u_x` of the circuit is the model hash.** -/
-theorem aug_ux (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8))
-    (h : AugRel W2 EA sp dS dT pm1 G StepRel v uux) :
+theorem front_ux (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8))
+    (h : FrontRel (p2 := p2) W2 sp dS dT pm1 v) :
     v.uxIn = hsC (p2 := p2) W2 sp dS v.pp v.i v.z0 v.zi (Uraw (p2 := p2) v)
       (SecVar.val (p2 := p2) W2 (secOf v.sa v.sE v.sW)) := by
   have h32 : 2 ^ 32 ≤ p1 := le_trans (Nat.le_add_right _ _) hp.le
-  obtain ⟨cp, cs⟩ := aug_canon W2 EA sp dS dT pm1 G StepRel hp hp2 h
-  obtain ⟨-, -, -, -, hsE, hsW, hU, hS, hN0, hN1, hux, -⟩ := h
+  obtain ⟨cp, cs⟩ := front_canon W2 sp dS dT pm1 hp hp2 h
+  obtain ⟨-, -, hsE, hsW, hU, hS, hN0, hN1, hux, -⟩ := h
   have e1 : ∀ k : Fin 4, pr (v.aoU k) = encE p1 p2 (vE v (Fin.castLE (by norm_num) k)) :=
     fun k => pr_ao_eq_encE h32 (cp _) (hU k)
   have e2 : ∀ k, pr (v.aoS k) = encE p1 p2 (emuV p2 (v.sa k)) :=
@@ -83,17 +88,24 @@ theorem aug_ux (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8))
   simp only [e1, vE, List.append_assoc, List.append_nil, List.cons_append, List.nil_append]
   rfl
 
-/-- **The primary challenge**: the circuit's `ρ` is the model's Fiat–Shamir challenge. -/
-theorem aug_rho (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8))
-    (hpm : natVal 254 pm1 = p1 - 1)
+
+theorem aug_ux (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8))
     (h : AugRel W2 EA sp dS dT pm1 G StepRel v uux) :
+    v.uxIn = hsC (p2 := p2) W2 sp dS v.pp v.i v.z0 v.zi (Uraw (p2 := p2) v)
+      (SecVar.val (p2 := p2) W2 (secOf v.sa v.sE v.sW)) :=
+  front_ux W2 sp dS dT pm1 hp hp2 h.front
+
+/-- **The primary challenge**: the circuit's `ρ` is the model's Fiat–Shamir challenge. -/
+theorem front_rho (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8))
+    (hpm : natVal 254 pm1 = p1 - 1)
+    (h : FrontRel (p2 := p2) W2 sp dS dT pm1 v) :
     (∀ j < 128, IsBool (cbN v.cb j)) ∧
       natVal 128 (fun j => decide (cbN v.cb j = 1)) =
         ch1nC (p2 := p2) sp dT v.pp (Uraw v) (uinRaw v) (piRaw v) ∧
       rhoOf v.cb = ((ch1nC (p2 := p2) sp dT v.pp (Uraw v) (uinRaw v) (piRaw v) : ℕ) : ZMod p1) := by
   have h32 : 2 ^ 32 ≤ p1 := le_trans (Nat.le_add_right _ _) hp.le
-  obtain ⟨cp, cs⟩ := aug_canon W2 EA sp dS dT pm1 G StepRel hp hp2 h
-  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, hT, hc, hbits, -⟩ := h
+  obtain ⟨cp, cs⟩ := front_canon W2 sp dS dT pm1 hp hp2 h
+  obtain ⟨-, -, -, -, -, -, -, -, -, hT, hc, hbits⟩ := h
   have e : ∀ k : Fin 8, pr (v.aoT k) = encE p1 p2 (vE v (![0, 1, 2, 3, 6, 7, 4, 5] k)) :=
     fun k => pr_ao_eq_encE h32 (cp _) (hT k)
   have e0 : pr (v.aoT 0) = encE p1 p2 (vE v 0) := e 0
@@ -133,6 +145,16 @@ theorem aug_rho (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8))
   · have : rhoOf v.cb = ((natVal 128 (fun j => decide (cbN v.cb j = 1)) : ℕ) : ZMod p1) :=
       sum_bits_cast (cbN v.cb) 128 hbool
     rw [this, hnv, hrho, hch]
+
+
+theorem aug_rho (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8))
+    (hpm : natVal 254 pm1 = p1 - 1)
+    (h : AugRel W2 EA sp dS dT pm1 G StepRel v uux) :
+    (∀ j < 128, IsBool (cbN v.cb j)) ∧
+      natVal 128 (fun j => decide (cbN v.cb j = 1)) =
+        ch1nC (p2 := p2) sp dT v.pp (Uraw v) (uinRaw v) (piRaw v) ∧
+      rhoOf v.cb = ((ch1nC (p2 := p2) sp dT v.pp (Uraw v) (uinRaw v) (piRaw v) : ℕ) : ZMod p1) :=
+  front_rho W2 sp dS dT pm1 hp hp2 hpm h.front
 
 end Basic
 
