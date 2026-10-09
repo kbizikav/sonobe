@@ -22,7 +22,7 @@ open Finset WeierstrassCurve WeierstrassCurve.Affine
 open scoped Classical
 
 /-- All group-law lemmas are stated with the classical `DecidableEq`. -/
-noncomputable local instance (priority := 10000) decEqZMod' {p : ℕ} : DecidableEq (ZMod p) :=
+noncomputable local instance (priority := 10000) decEqZModPO {p : ℕ} : DecidableEq (ZMod p) :=
   fun a b => Classical.propDecidable (a = b)
 
 section Bits
