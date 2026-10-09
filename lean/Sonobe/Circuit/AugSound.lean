@@ -81,6 +81,57 @@ theorem aug_ux (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8))
   simp only [e1, vE, List.append_assoc, List.append_nil, List.cons_append, List.nil_append]
   rfl
 
+/-- **The primary challenge**: the circuit's `ρ` is the model's Fiat–Shamir challenge. -/
+theorem aug_rho (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8))
+    (hpm : natVal 254 pm1 = p1 - 1)
+    (h : AugRel W2 EA sp dS dT pm1 G StepRel v uux) :
+    (∀ j < 128, IsBool (cbN v.cb j)) ∧
+      natVal 128 (fun j => decide (cbN v.cb j = 1)) =
+        ch1nC (p2 := p2) sp dT v.pp (Uraw v) (uinRaw v) (piRaw v) ∧
+      rhoOf v.cb = ((ch1nC (p2 := p2) sp dT v.pp (Uraw v) (uinRaw v) (piRaw v) : ℕ) : ZMod p1) := by
+  have h32 : 2 ^ 32 ≤ p1 := le_trans (Nat.le_add_right _ _) hp.le
+  obtain ⟨cp, cs⟩ := aug_canon W2 EA sp dS dT pm1 G StepRel hp hp2 h
+  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, hT, hc, hbits, -⟩ := h
+  have e : ∀ k : Fin 8, pr (v.aoT k) = encE p1 p2 (vE v (![0, 1, 2, 3, 6, 7, 4, 5] k)) :=
+    fun k => pr_ao_eq_encE h32 (cp _) (hT k)
+  have e0 : pr (v.aoT 0) = encE p1 p2 (vE v 0) := e 0
+  have e1 : pr (v.aoT 1) = encE p1 p2 (vE v 1) := e 1
+  have e2 : pr (v.aoT 2) = encE p1 p2 (vE v 2) := e 2
+  have e3 : pr (v.aoT 3) = encE p1 p2 (vE v 3) := e 3
+  have e4 : pr (v.aoT 4) = encE p1 p2 (vE v 6) := e 4
+  have e5 : pr (v.aoT 5) = encE p1 p2 (vE v 7) := e 5
+  have e6 : pr (v.aoT 6) = encE p1 p2 (vE v 4) := e 6
+  have e7 : pr (v.aoT 7) = encE p1 p2 (vE v 5) := e 7
+  have hlist : ([v.Uu, v.Ux] ++ pr (v.aoT 0) ++ pr (v.aoT 1) ++ pr (v.aoT 2) ++ pr (v.aoT 3) ++
+      [v.uxIn] ++ pr (v.aoT 4) ++ pr (v.aoT 5) ++ pr (v.aoT 6) ++ pr (v.aoT 7)) =
+      encRU1 p1 p2 (Uraw v) ++ encIU1 p1 p2 (uinRaw v) ++ encPtE p1 p2 (piRaw v) := by
+    rw [e0, e1, e2, e3, e4, e5, e6, e7]
+    simp only [Uraw, uinRaw, piRaw, encRU1, encIU1, encPtE, List.append_assoc, List.cons_append,
+      List.nil_append]
+  have hL : v.c = hashOut sp (spInit sp v.pp dT)
+      (encRU1 p1 p2 (Uraw v) ++ encIU1 p1 p2 (uinRaw v) ++ encPtE p1 p2 (piRaw v)) := by
+    rw [hc, hlist]
+  -- the canonical bits of `c`
+  have hbv := toBits_sound (n := 254) hpm hbits
+  have hrho : natVal 128 (bitsOf v.cb) = v.c.val % 2 ^ 128 := by
+    rw [hbv]; exact (natVal_mod _ (by norm_num)).symm
+  have hbool : ∀ j < 128, IsBool (cbN v.cb j) := by
+    intro j hj
+    have := hbits.1.1 ⟨j, by omega⟩
+    simpa [cbN, show j < 254 by omega] using this
+  have hnv : natVal 128 (fun j => decide (cbN v.cb j = 1)) = natVal 128 (bitsOf v.cb) := by
+    unfold natVal
+    refine sum_congr rfl fun j hj => ?_
+    have := mem_range.mp hj
+    simp [bitsOf, cbN, show j < 254 by omega]
+  have hch : ch1nC (p2 := p2) sp dT v.pp (Uraw v) (uinRaw v) (piRaw v) = v.c.val % 2 ^ 128 := by
+    unfold ch1nC; rw [hL]
+  refine ⟨hbool, ?_, ?_⟩
+  · rw [hnv, hrho, hch]
+  · have : rhoOf v.cb = ((natVal 128 (fun j => decide (cbN v.cb j = 1)) : ℕ) : ZMod p1) :=
+      sum_bits_cast (cbN v.cb) 128 hbool
+    rw [this, hnv, hrho, hch]
+
 end Basic
 
 end Gadget

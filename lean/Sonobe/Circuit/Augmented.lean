@@ -122,7 +122,7 @@ def AugRel (v : AugVars p1 sN) (uux : ZMod p1) : Prop :=
   -- 1.c  ρ = challenge_bits(transcript.add(U).add(u).add(π))
   (∀ k : Fin 8, EmuAbsRel (v.pa (![0, 1, 2, 3, 6, 7, 4, 5] k)) (v.awT k) (v.aoT k)) ∧
   v.c = hashOut sp (spInit sp v.pp dT)
-    ([v.Uu, v.Ux] ++ prs (fun k : Fin 4 => v.aoT (Fin.castLE (by norm_num) k)) ++ [v.uxIn] ++
+    ([v.Uu, v.Ux] ++ pr (v.aoT 0) ++ pr (v.aoT 1) ++ pr (v.aoT 2) ++ pr (v.aoT 3) ++ [v.uxIn] ++
       pr (v.aoT 4) ++ pr (v.aoT 5) ++ pr (v.aoT 6) ++ pr (v.aoT 7)) ∧
   ToBitsRel 254 pm1 v.c v.cb ∧
   -- 2. CycleFold side: the incoming instances have public inputs (ρ, P₀, P₁, P₂) and the
