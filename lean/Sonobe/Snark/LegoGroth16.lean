@@ -104,6 +104,64 @@ theorem groth16_complete (hγ : pp.γ ≠ 0) (hδ : pp.δ ≠ 0) (x : P → F) (
   rw [sc, add_smul, add_smul]
   abel
 
+/-! #### The link matrix (mod.rs:324-346) -/
+
+variable (blk : K → C) (gK : K → G₁) (hC : C → G₁)
+
+/-- Rows: one per Pedersen commitment `j`, then the row of `D`. Columns: committed values,
+commitment randomness `o`, and the Groth16 blinder `v`. -/
+def linkM : C ⊕ Unit → K ⊕ C ⊕ Unit → G₁
+  | .inl j, .inl i => if blk i = j then gK i else 0
+  | .inl j, .inr (.inl j') => if j' = j then hC j else 0
+  | .inl _, .inr (.inr _) => 0
+  | .inr _, .inl i => (pp.kk (Sum.inr (Sum.inl i)) / pp.γ) • g₁
+  | .inr _, .inr (.inl _) => 0
+  | .inr _, .inr (.inr _) => (pp.η / pp.γ) • g₁
+
+def omega (wc : K → F) (o : C → F) (v : F) : K ⊕ C ⊕ Unit → F :=
+  Sum.elim wc (Sum.elim o (fun _ => v))
+
+/-- Pedersen commitment `j` to its block of committed variables. -/
+def cm (wc : K → F) (o : C → F) (j : C) : G₁ :=
+  (∑ i, if blk i = j then wc i • gK i else 0) + o j • hC j
+
+/-- `D` (mod.rs:489). -/
+def dElt (wc : K → F) (v : F) : G₁ :=
+  (((∑ k, pp.kk (Sum.inr (Sum.inl k)) * wc k) / pp.γ + v * pp.η / pp.γ) • g₁)
+
+theorem row_cm (wc : K → F) (o : C → F) (v : F) (j : C) :
+    ∑ i, omega wc o v i • linkM pp g₁ blk gK hC (.inl j) i = cm blk gK hC wc o j := by
+  simp [Fintype.sum_sum_type, omega, linkM, cm, apply_ite]
+
+theorem row_d (wc : K → F) (o : C → F) (v : F) :
+    ∑ i, omega wc o v i • linkM pp g₁ blk gK hC (.inr ()) i = dElt pp g₁ wc v := by
+  simp only [Fintype.sum_sum_type, omega, linkM, dElt, Sum.elim_inl, Sum.elim_inr, smul_smul,
+    smul_zero, Finset.sum_const_zero, add_zero]
+  simp [← Finset.sum_smul, ← add_smul, add_div, Finset.sum_div, mul_div_assoc, mul_comm]
+
+variable (ak : G₂) (kl : C ⊕ Unit → F)
+
+/-- **LegoGroth16 completeness** (verify, mod.rs:514-547): both the Groth16 check and the link
+check accept the honest proof, for the commitments `c_j = cm j`. -/
+theorem lego_complete (hγ : pp.γ ≠ 0) (hδ : pp.δ ≠ 0) (x : P → F) (wc : K → F) (ww : W → F)
+    (hq r s v : F) (o : C → F) (hqap : Qap pp x wc ww hq) :
+    Groth16Check pp e g₁ g₂
+      ((pp.α + (∑ i, pp.qa i * Sum.elim x (Sum.elim wc ww) i) + r * pp.δ) • g₁)
+      ((pp.β + (∑ i, pp.qb i * Sum.elim x (Sum.elim wc ww) i) + s * pp.δ) • g₂)
+      ((s * (pp.α + (∑ i, pp.qa i * Sum.elim x (Sum.elim wc ww) i) + r * pp.δ)
+        + r * (pp.β + (∑ i, pp.qb i * Sum.elim x (Sum.elim wc ww) i) + s * pp.δ)
+        - r * s * pp.δ + (∑ w, pp.kk (Sum.inr (Sum.inr w)) * ww w) / pp.δ + hq
+        - v * pp.η / pp.δ) • g₁)
+      (dElt pp g₁ wc v) (((∑ p, pp.kk (Sum.inl p) * x p) / pp.γ) • g₁) ∧
+    LinearSubspace.Verify e ak kl
+      (Sum.elim (cm blk gK hC wc o) (fun _ => dElt pp g₁ wc v))
+      (LinearSubspace.prove (LinearSubspace.pk (linkM pp g₁ blk gK hC) kl) (omega wc o v)) := by
+  refine ⟨groth16_complete pp e g₁ g₂ hγ hδ x wc ww hq r s v hqap, ?_⟩
+  refine LinearSubspace.complete e ak _ kl (omega wc o v) _ ?_
+  rintro (j | ⟨⟩)
+  · exact (row_cm pp g₁ blk gK hC wc o v j).symm
+  · exact (row_d pp g₁ blk gK hC wc o v).symm
+
 end Complete
 
 

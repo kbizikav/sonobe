@@ -11,3 +11,4 @@ import Sonobe.IVC.Completeness
 import Sonobe.IVC.Soundness
 import Sonobe.Snark.LinearSubspace
 import Sonobe.Snark.LegoGroth16
+import Sonobe.Decider
