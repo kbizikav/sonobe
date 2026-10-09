@@ -90,15 +90,22 @@ impl<F: PrimeField> Inputize<F> for FpVar<F> {
 }
 
 impl<Base: SonobeField, Target: SonobeField> Inputize<Base> for EmulatedFieldVar<Base, Target> {
+    /// An emulated element is a public input as the same packed field elements
+    /// that [`Absorbable`] produces: the bits are cut into chunks of
+    /// `Base::MODULUS_BIT_SIZE - 1` bits (253 bits for BN254), so that a 254-bit
+    /// element takes 2 public inputs rather than 8 limbs. Every public input is
+    /// charged an elliptic curve multiplication by the on-chain verifier.
     fn inputize(value: &Self::Value) -> Vec<Base> {
-        // TODO: pack bits
-        value
+        let bits_per_chunk = Base::MODULUS_BIT_SIZE as usize - 1;
+        let num_chunks = (Target::MODULUS_BIT_SIZE as usize).div_ceil(bits_per_chunk);
+        let mut packed = value
             .into_bigint()
             .to_bits_le()
-            .chunks(Base::BITS_PER_LIMB)
-            .map(Base::BigInt::from_bits_le)
-            .map(Base::from)
-            .collect()
+            .chunks(bits_per_chunk)
+            .map(|chunk| Base::from(Base::BigInt::from_bits_le(chunk)))
+            .collect::<Vec<_>>();
+        packed.resize(num_chunks, Base::zero());
+        packed
     }
 }
 
@@ -121,10 +128,14 @@ impl<F: PrimeField> WitnessToPublic for FpVar<F> {
 }
 
 impl<Base: SonobeField, Target: SonobeField> WitnessToPublic for EmulatedFieldVar<Base, Target> {
+    /// Marks the packed representation (see [`Inputize`]) as public. The packing
+    /// is the one of [`AbsorbableVar`]: canonical bits, chunks of
+    /// `Base::MODULUS_BIT_SIZE - 1` bits. As `self` is range-checked and
+    /// canonical, the packed values determine `self` uniquely.
     fn mark_as_public(&self) -> Result<(), SynthesisError> {
-        self.enforce_equal(&Self::new_input(self.cs(), || {
-            Ok(self.value().unwrap_or_default())
-        })?)
+        let mut packed = vec![];
+        self.absorb_into(&mut packed)?;
+        packed.mark_as_public()
     }
 }
 

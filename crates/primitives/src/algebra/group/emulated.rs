@@ -157,7 +157,10 @@ mod tests {
     use wasm_bindgen_test::wasm_bindgen_test as test;
 
     use super::*;
-    use crate::{circuits::inputize::Inputize, transcripts::Absorbable};
+    use crate::{
+        circuits::{WitnessToPublic, inputize::Inputize},
+        transcripts::Absorbable,
+    };
 
     #[test]
     fn test_alloc_zero() {
@@ -192,9 +195,19 @@ mod tests {
 
         let cs = ConstraintSystem::<Fr>::new_ref();
         let p_var = EmulatedAffineVar::<Fr, Projective>::new_witness(cs.clone(), || Ok(p))?;
+        // Public inputs are the packed (absorbed) coordinates: 2 field elements
+        // per coordinate instead of 8 limbs.
+        let mut packed = Vec::<Fr>::new();
+        p.absorb_into(&mut packed);
+        assert_eq!(packed, EmulatedAffineVar::<Fr, Projective>::inputize(&p));
+        assert_eq!(4, packed.len());
+        // `mark_as_public` allocates exactly these inputs, and they bind the
+        // witness.
+        p_var.mark_as_public()?;
+        assert!(cs.is_satisfied()?);
         assert_eq!(
-            [p_var.x.limbs.value()?, p_var.y.limbs.value()?].concat(),
-            EmulatedAffineVar::inputize(&p)
+            packed,
+            cs.borrow().unwrap().instance_assignment()?[1..].to_vec()
         );
 
         let cs = ConstraintSystem::<Fq>::new_ref();

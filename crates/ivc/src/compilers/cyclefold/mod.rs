@@ -695,18 +695,36 @@ impl<
                 .ok_or(Error::IVCVerificationFail);
         }
 
+        // The challenges are outputs of the circuit's transcript (public inputs),
+        // and so is the binding of `U`, `u` and `folding_proof` to the circuit
+        // (their commitments are public inputs as well). The verifier therefore
+        // folds with the circuit's challenges instead of recomputing them. A dry
+        // run on the native transcript only fixes how many challenges there are.
         let hash = T::new_with_pp_hash(hash_config.clone(), *pp_hash);
-        let mut transcript = hash.separate_domain("transcript".as_ref());
+        let mut recording = RecordingTranscript::new(hash.separate_domain("transcript".as_ref()));
+        FS1::verify(folding_vk, &mut recording, &[U], &[u], folding_proof)?;
+        if recording.cached_challenges.len() != challenges.len() {
+            return Err(Error::IVCVerificationFail);
+        }
 
+        let mut transcript = ReplayTranscript::new(challenges.clone());
         let UU = FS1::verify(folding_vk, &mut transcript, &[U], &[u], folding_proof)?;
         let commitments = UU.commitments();
+        let points = U
+            .commitments()
+            .into_iter()
+            .chain(u.commitments())
+            .chain(FS1::proof_commitments(folding_proof))
+            .collect::<Vec<_>>();
 
+        type CmVar<G> = <<G as FoldingSchemeDefGadget>::CM as CommitmentDefGadget>::CommitmentVar;
         let x = &[
             vec![<Self::IVC as IVCTypes>::Field::from(i as u64)],
             FC::StateVar::inputize(initial_state),
             FC::StateVar::inputize(current_state),
             challenges.clone(),
-            commitments.iter().flat_map(<<FS1::Gadget as FoldingSchemeDefGadget>::CM as CommitmentDefGadget>::CommitmentVar::inputize).collect::<Vec<_>>()
+            points.iter().flat_map(CmVar::<FS1::Gadget>::inputize).collect::<Vec<_>>(),
+            commitments.iter().flat_map(CmVar::<FS1::Gadget>::inputize).collect::<Vec<_>>(),
         ]
         .concat();
         let c = CurveGroup::normalize_batch(&commitments);
@@ -856,6 +874,22 @@ impl<
         let UU = FS1::Gadget::verify_hinted(&(), &mut transcript, [&U], [&u], &proof)?;
 
         transcript.cached_challenges.mark_as_public()?;
+
+        // The verifier recomputes the commitments of `UU` from the commitments of
+        // `U`, `u` and the folding proof, using the public challenge. The circuit
+        // itself leaves `UU`'s commitments as hints, so the commitments the
+        // verifier folds must be *these* instances' commitments: expose them
+        // (packed, 2 field elements per coordinate). Without this, the points
+        // the verifier works with would be unrelated to the circuit's `U`, `u`
+        // and `proof`, and a prover could pick them after the fact.
+        for cm in U
+            .commitments()
+            .into_iter()
+            .chain(u.commitments())
+            .chain(FS1::Gadget::proof_commitments(&proof))
+        {
+            cm.mark_as_public()?;
+        }
 
         FS1::Gadget::decide_running(&dk1, &WW, &UU)?;
         FS2::Gadget::decide_running(&dk2, &cf_W, &cf_U)?;

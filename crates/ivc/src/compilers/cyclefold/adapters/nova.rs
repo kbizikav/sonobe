@@ -237,6 +237,10 @@ impl<
             ]
             .join("\n"),
             commitments: ["cm_e", "cm_w"].map(ToString::to_string).to_vec(),
+            // `U.commitments()`, `u.commitments()`, then the proof's commitment
+            public_points: ["U_cm_e", "U_cm_w", "u_cm_w", "cm_t"]
+                .map(ToString::to_string)
+                .to_vec(),
         }
     }
 
@@ -273,7 +277,7 @@ mod tests {
     use super::*;
     use crate::{
         compilers::cyclefold::CycleFoldBasedIVCDecider,
-        tests::{test_decider, test_ivc},
+        tests::{test_decider, test_decider_rejects, test_ivc},
     };
     #[cfg(feature = "evm")]
     use crate::{
@@ -313,6 +317,45 @@ mod tests {
                 x: Fr::rand(&mut rng),
             },
             vec![(); 20],
+            &mut rng,
+        )
+    }
+
+    /// The decider verifier folds the commitments of `U`, `u` and the folding
+    /// proof with the circuit's own challenge. These points and the challenge
+    /// are public inputs, so changing any of them must be rejected.
+    #[test]
+    fn test_nova_nova_decider_rejects_tampering() -> Result<(), Box<dyn Error>> {
+        use ark_ec::CurveGroup;
+
+        let mut rng = thread_rng();
+
+        test_decider_rejects::<
+            CycleFoldBasedIVCDecider<
+                Nova<Pedersen<C1, true>>,
+                CycleFoldNova<Pedersen<C2, true>>,
+                GriffinSponge<_>,
+                LegoGroth16<Bn254>,
+            >,
+            _,
+        >(
+            (65536, 2048, Arc::new(GriffinParams::new(16, 5, 9))),
+            CircuitForTest {
+                x: Fr::rand(&mut rng),
+            },
+            vec![(); 4],
+            vec![
+                (
+                    "challenge changed",
+                    Box::new(|p| p.4[0] += Fr::from(1u64)),
+                ),
+                ("challenge dropped", Box::new(|p| p.4.clear())),
+                ("challenge added", Box::new(|p| p.4.push(Fr::from(1u64)))),
+                ("U.cm_e changed", Box::new(|p| p.1.cm_e = (p.1.cm_e + p.1.cm_e).into_affine().into())),
+                ("U.cm_w changed", Box::new(|p| p.1.cm_w = (p.1.cm_w + p.1.cm_w).into_affine().into())),
+                ("u.cm_w changed", Box::new(|p| p.2.cm_w = (p.2.cm_w + p.2.cm_w).into_affine().into())),
+                ("cm_t changed", Box::new(|p| p.3 = (p.3 + p.3).into_affine().into())),
+            ],
             &mut rng,
         )
     }

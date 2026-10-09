@@ -69,6 +69,12 @@ impl<CM: GroupBasedCommitment, TF: SonobeField, const CHALLENGE_BITS: usize> Fol
     type DeciderKey = NovaKey<Self::Arith, CM>;
     type Challenge = [bool; CHALLENGE_BITS];
     type Proof<const M: usize, const N: usize> = CM::Commitment;
+
+    fn proof_commitments<const M: usize, const N: usize>(
+        proof: &Self::Proof<M, N>,
+    ) -> Vec<CM::Commitment> {
+        vec![proof.clone()]
+    }
 }
 
 /// [`AbstractNovaGadget`] is the in-circuit gadget for [`AbstractNova`].
@@ -93,6 +99,12 @@ where
     type DeciderKey = NovaKeyVar<Self::Arith, CM>;
     type Challenge = [Boolean<CM::ConstraintField>; CHALLENGE_BITS];
     type Proof<const M: usize, const N: usize> = CM::CommitmentVar;
+
+    fn proof_commitments<const M: usize, const N: usize>(
+        proof: &Self::Proof<M, N>,
+    ) -> Vec<&CM::CommitmentVar> {
+        vec![proof]
+    }
 }
 
 impl<CM: GroupBasedCommitment, const CHALLENGE_BITS: usize> GroupBasedFoldingSchemePrimaryDef

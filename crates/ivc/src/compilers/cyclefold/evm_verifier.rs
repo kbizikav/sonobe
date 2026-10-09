@@ -12,6 +12,9 @@ pub struct DeciderFoldFragment {
     pub params: Vec<String>,
     pub body: String,
     pub commitments: Vec<String>,
+    /// Names of the `uint256[2]` parameters that are public inputs of the
+    /// decider circuit, in circuit order: the points the fold works with.
+    pub public_points: Vec<String>,
 }
 
 pub trait FoldingSchemeEVMExt<const M: usize, const N: usize>: FoldingSchemeVerifier<M, N> {

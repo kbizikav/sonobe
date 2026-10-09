@@ -489,9 +489,11 @@ pub trait IVCProofCompressorEVMExt: IVCProofCompressor {
 mod tests {
     use ark_std::{error::Error, rand::Rng};
     #[cfg(feature = "evm")]
+    use ark_ff::BigInteger;
+    #[cfg(feature = "evm")]
     use sonobe_primitives::{
         algebra::field::SonobeField,
-        circuits::test_utils::CircuitForTest,
+        circuits::{inputize::Inputize, test_utils::CircuitForTest},
         utils::evm::{compiler::SolidityCompiler, harness::TestEVM},
     };
 
@@ -656,6 +658,63 @@ mod tests {
         Ok(())
     }
 
+    /// Like [`test_decider`], but additionally checks that tampered proofs and
+    /// claims are rejected: each closure in `tampers` modifies a clone of the
+    /// compressed proof, and the verifier must return an error (not panic).
+    #[allow(clippy::type_complexity)]
+    pub fn test_decider_rejects<
+        D: IVCProofCompressor,
+        F: FCircuit<Field = <D::IVC as IVCTypes>::Field, ExternalInputs: Clone>,
+    >(
+        config: <D::IVC as IVCTypes>::Config,
+        step_circuit: F,
+        external_inputs_vec: Vec<F::ExternalInputs>,
+        tampers: Vec<(&str, Box<dyn Fn(&mut D::CompressedProof<F>)>)>,
+        mut rng: impl Rng,
+    ) -> Result<(), Box<dyn Error>>
+    where
+        D::CompressedProof<F>: Clone,
+    {
+        let n = external_inputs_vec.len();
+
+        let pp = D::IVC::preprocess(config, &mut rng)?;
+        let (pk, vk) = D::IVC::generate_keys(pp, &step_circuit)?;
+        let initial_state = step_circuit.dummy_state();
+        let (current_state, current_proof) = test_auto_state_management::<D::IVC, F>(
+            &pk,
+            &vk,
+            &step_circuit,
+            initial_state.clone(),
+            external_inputs_vec,
+            &mut rng,
+        )?;
+        let (pk, vk) = D::preprocess_and_generate_keys(&step_circuit, vk, &mut rng)?;
+        let proof = D::prove(
+            &pk,
+            n,
+            &initial_state,
+            &current_state,
+            &current_proof,
+            &mut rng,
+        )?;
+
+        D::verify(&vk, n, &initial_state, &current_state, &proof)?;
+
+        // a different number of steps is a different claim
+        assert!(D::verify(&vk, n + 1, &initial_state, &current_state, &proof).is_err());
+
+        for (name, tamper) in tampers {
+            let mut bad = proof.clone();
+            tamper(&mut bad);
+            assert!(
+                D::verify(&vk, n, &initial_state, &current_state, &bad).is_err(),
+                "tampered proof accepted: {name}"
+            );
+        }
+
+        Ok(())
+    }
+
     #[cfg(feature = "evm")]
     pub fn test_decider_evm<
         D: IVCProofCompressorEVMExt,
@@ -703,14 +762,41 @@ mod tests {
         let addr = evm.deploy(&bytecode, ())?.unwrap();
         let sig = *selectors.get("verifyDeciderProof").unwrap();
 
-        assert!(
-            evm.view(
-                addr,
-                sig,
-                &D::verify_calldata::<F>(&vk, n, &initial_state, &current_state, &proof)?
-            )?
-            .is_success()
-        );
+        let calldata = D::verify_calldata::<F>(&vk, n, &initial_state, &current_state, &proof)?;
+        assert!(evm.view(addr, sig, &calldata)?.is_success());
+
+        // Every word of the calldata is bound by the proof: the step count, the
+        // states, the challenge, and the four points the contract folds. A
+        // tampered word must make the call fail.
+        // Layout (32-byte words): i, z_0, z_i, challenge, 4 points × 2, proof.
+        let state_len = F::StateVar::inputize(&initial_state).len();
+        let words = calldata.len() / 32;
+        let proof_start = 2 + 2 * state_len + 8;
+        for word in 0..words {
+            if word >= proof_start && word + 1 < words {
+                // skipping most proof words keeps the test fast; the first and
+                // the last one are covered below
+                continue;
+            }
+            let mut bad = calldata.clone();
+            bad[32 * word + 31] ^= 1;
+            assert!(
+                !evm.view(addr, sig, &bad)?.is_success(),
+                "tampered calldata word {word} accepted"
+            );
+        }
+        // a field element that is not canonical (value + R) must be rejected
+        // as such, even if it is congruent to the honest one
+        let mut bad = calldata.clone();
+        let r = <<D::IVC as IVCTypes>::Field as ark_ff::PrimeField>::MODULUS.to_bytes_be();
+        let mut carry = 0u16;
+        for k in 0..32 {
+            let idx = 32 * (1 + 2 * state_len) + 31 - k;
+            let v = bad[idx] as u16 + r[31 - k] as u16 + carry;
+            bad[idx] = v as u8;
+            carry = v >> 8;
+        }
+        assert!(!evm.view(addr, sig, &bad)?.is_success());
 
         Ok(())
     }

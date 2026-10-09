@@ -21,7 +21,7 @@ use crate::{
         group::{CF1, CF2, EnforceValid, SonobeCurve, emulated::EmulatedAffineVar},
         ops::bits::FromBitsGadget,
     },
-    circuits::inputize::Inputize,
+    circuits::{WitnessToPublic, inputize::Inputize},
     transcripts::{Absorbable, AbsorbableVar},
 };
 
@@ -155,7 +155,8 @@ pub trait CommitmentDefGadget: Clone {
         + AllocVar<<Self::Widget as CommitmentDef>::Commitment, Self::ConstraintField>
         + GR1CSVar<Self::ConstraintField, Value = <Self::Widget as CommitmentDef>::Commitment>
         + Inputize<Self::ConstraintField>
-        + EnforceValid;
+        + EnforceValid
+        + WitnessToPublic;
     /// [`CommitmentDefGadget::RandomnessVar`] is the in-circuit variable type
     /// for the randomness used in the commitment.
     type RandomnessVar: AllocVar<<Self::Widget as CommitmentDef>::Randomness, Self::ConstraintField>

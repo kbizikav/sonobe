@@ -1,7 +1,9 @@
 {%- let numCommitments = vk.link_vk.c.len() - 1 -%}
 {%- let numPublicInputs = vk.cc_vk.gamma_abc_g1_pub.len() - 1 -%}
-{%- let stateLen = (numPublicInputs - 1 - numCommitments * 16 - 1) / 2 %}
 {%- let fold = FS::decider_fold_fragment() %}
+{#- Each point is 2 coordinates, each packed into 2 public inputs (see `pack`). #}
+{%- let numPoints = fold.public_points.len() + numCommitments %}
+{%- let stateLen = (numPublicInputs - 1 - numPoints * 4 - 1) / 2 %}
 {%- let state = FC::decider_state_fragment(&reference_state) %}
 // SPDX-License-Identifier: MIT
 
@@ -50,7 +52,10 @@ contract DeciderVerifier is LegoGroth16Verifier {
             {%- endfor %}
         ];
 
-        // x = [i, z_0.., z_i.., challenge, inputize(cm)].
+        // x = [i, z_0.., z_i.., challenge, pack(public points).., pack(c)..].
+        // The public points are the circuit's U, u and folding proof commitments,
+        // which the circuit binds to the instances it folds; c is recomputed
+        // from them above using the circuit's own challenge.
         uint256[{{ numPublicInputs }}] memory x;
         x[0] = i;
         for (uint256 k = 0; k < {{ stateLen }}; k++) {
@@ -58,10 +63,12 @@ contract DeciderVerifier is LegoGroth16Verifier {
             x[1 + {{ stateLen }} + k] = z_i_flattened[k];
         }
         x[{{ 1 + 2 * stateLen }}] = {{ fold.challenge }};
-        for (uint256 i = 0; i < {{ numCommitments * 2 }}; i++) {
-            for (uint256 k = 0; k < 8; k++) {
-                x[{{ 1 + 2 * stateLen + 1 }} + i * 8 + k] = (c[i] >> (32 * k)) & 0xFFFFFFFF;
-            }
+        {%- for p in fold.public_points %}
+        (x[{{ 2 + 2 * stateLen + 4 * loop.index0 }}], x[{{ 3 + 2 * stateLen + 4 * loop.index0 }}]) = _pack({{ p }}[0]);
+        (x[{{ 4 + 2 * stateLen + 4 * loop.index0 }}], x[{{ 5 + 2 * stateLen + 4 * loop.index0 }}]) = _pack({{ p }}[1]);
+        {%- endfor %}
+        for (uint256 k = 0; k < {{ numCommitments * 2 }}; k++) {
+            (x[{{ 2 + 2 * stateLen + 4 * fold.public_points.len() }} + 2 * k], x[{{ 3 + 2 * stateLen + 4 * fold.public_points.len() }} + 2 * k]) = _pack(c[k]);
         }
 
         this.verifyProof(x, c, proof);
@@ -73,6 +80,15 @@ contract DeciderVerifier is LegoGroth16Verifier {
 
     function _flattenState({{ state.type_name }} calldata z) internal pure returns (uint256[{{ stateLen }}] memory) {
         {{ state.flatten_body|indent(8)|safe }}
+    }
+
+    /// Packs a base field coordinate (254 bits) into two public inputs, the
+    /// low 253 bits and the remaining bit, as the circuit's `mark_as_public`
+    /// does for emulated field elements. Coordinates are canonical (< q <
+    /// 2^254) as they have been through the ecAdd/ecMul/pairing precompiles.
+    function _pack(uint256 v) internal pure returns (uint256 lo, uint256 hi) {
+        lo = v & ((1 << 253) - 1);
+        hi = v >> 253;
     }
 
     function _ecMul(uint256[2] calldata p, uint256 s)

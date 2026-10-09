@@ -99,6 +99,7 @@ pub struct VerifierKey<E: Pairing> {
     pub link_vk: LinearSubspaceVK<E>,
 }
 
+#[derive(Clone)]
 pub struct Proof<E: Pairing> {
     pub groth16_proof: Groth16Proof<E>,
     /// The `D` element in `G1`. Commits to a subset of private inputs of the
@@ -517,6 +518,12 @@ impl<E: Pairing<G1: SonobeCurve, BaseField: SonobeField, ScalarField: SonobeFiel
         c: &[Self::Commitment],
         proof: &Self::Proof,
     ) -> Result<(), Self::Error> {
+        // `zip` below would silently drop surplus public inputs (and a short
+        // `x` would leave some unused), so insist on the exact lengths.
+        if x.len() + 1 != vk.cc_vk.gamma_abc_g1_pub.len() || c.len() + 1 != vk.link_vk.c.len() {
+            return Err(SynthesisError::Unsatisfiable);
+        }
+
         let mut g_ic = vk.cc_vk.gamma_abc_g1_pub[0].into_group();
         for (i, b) in x.iter().zip(vk.cc_vk.gamma_abc_g1_pub.iter().skip(1)) {
             g_ic += *b * i;
