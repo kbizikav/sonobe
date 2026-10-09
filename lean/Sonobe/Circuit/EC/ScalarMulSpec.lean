@@ -66,7 +66,7 @@ theorem scalar_mul_sound (h2 : (2 : F) ≠ 0) (hnr : ∀ e : F, e ^ 3 + W.a₄ *
     (hord : ∀ P : W.toAffine.Point, P ≠ 0 → addOrderOf P = r)
     {n : ℕ} (hn : 1 ≤ n) (hrn : 2 ^ n < r) {G : F × F} (hG : W.toAffine.Equation G.1 G.2)
     {bits : ℕ → F} (hb : ∀ i < n, IsBool (bits i)) {P : PP F} (hP : P.OnCurve W.a₄ W.a₆)
-    (hv : ¬ P.IsZero) {w : SMWit F} (h : SMRel W n G bits P w) :
+    {w : SMWit F} (h : SMRel W n G bits P w) :
     (smOut W n G bits w).OnCurve W.a₄ W.a₆ ∧ ¬ (smOut W n G bits w).IsZero ∧
       (smOut W n G bits w).pt W = natVal n (fun j => decide (bits j = 1)) • P.pt W := by
   obtain ⟨hA, hC⟩ := h

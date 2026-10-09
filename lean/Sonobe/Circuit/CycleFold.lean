@@ -105,7 +105,7 @@ theorem cf_sound (hb : W.a₆ ≠ 0) (h2 : (2 : ZMod p) ≠ 0)
   obtain ⟨hval, hlt⟩ := toNBits_sound hnp hρ
   rw [natVal_bitsOf] at hval
   obtain ⟨hS_c, hS_n, hS_p⟩ :=
-    scalar_mul_sound W h2 hnr hord hn hrn hG hbool hv1.1 hv1.not_isZero hsm
+    scalar_mul_sound W h2 hnr hord hn hrn hG hbool hv1.1 hsm
   obtain ⟨hR_c, hR_n, hR_p⟩ := rcb_spec W h2 hnr hS_c hv0.1 hS_n hv0.not_isZero
   refine ⟨hlt, ?_⟩
   rw [coordPt_affine W hb hR_c haR, coordPt_affine W hb hv0.1 ha0, coordPt_affine W hb hv1.1 ha1,
