@@ -149,5 +149,139 @@ theorem nrm_spec {x₁ y₁ x₂ y₂ : F} (h₁ : W.toAffine.Equation x₁ y₁
 
 end Spec
 
+section Helpers
+
+theorem PP.smul_smul (c d : F) (P : PP F) : (P.smul c).smul d = P.smul (d * c) := by
+  simp only [PP.smul, PP.mk.injEq]; refine ⟨by ring, by ring, by ring⟩
+
+theorem PP.eq_norm {P : PP F} (hz : P.z ≠ 0) : P = (PP.mk (P.x / P.z) (P.y / P.z) 1).smul P.z := by
+  obtain ⟨x, y, z⟩ := P
+  simp only [PP.smul, PP.mk.injEq] at *
+  refine ⟨by field_simp, by field_simp, by ring⟩
+
+theorem x_zero_of_z_zero {P : PP F} (h : P.OnCurve W.a₄ W.a₆) (hz : P.z = 0) : P.x = 0 := by
+  simp only [PP.OnCurve, hz] at h
+  have : P.x ^ 3 = 0 := by linear_combination -h
+  exact pow_eq_zero_iff (by norm_num) |>.mp this
+
+theorem y_ne_zero {P : PP F} (h : P.OnCurve W.a₄ W.a₆) (hz : P.z = 0) (hn : ¬ P.IsZero) :
+    P.y ≠ 0 := by
+  intro hy
+  exact hn ⟨x_zero_of_z_zero W h hz, hy, hz⟩
+
+/-- `(0 : y : 0) + (x₂ : y₂ : 1)`, identically in the ring. -/
+theorem rcb_inf_left (a b y x₂ y₂ : F) :
+    rcb a b ⟨0, y, 0⟩ ⟨x₂, y₂, 1⟩ = (PP.mk x₂ y₂ 1).smul (y ^ 2 * y₂) := by
+  simp only [rcb, PP.smul, PP.mk.injEq]
+  refine ⟨by ring, by ring, by ring⟩
+
+end Helpers
+
+section Spec2
+
+variable [DecidableEq F] (h2 : (2 : F) ≠ 0) (hnr : ∀ e : F, e ^ 3 + W.a₄ * e + W.a₆ ≠ 0)
+include h2 hnr
+
+/-- Point at infinity plus a finite point, with the finite point written as a scaled normalised
+triple. -/
+theorem rcb_inf_fin {y x₂ y₂ c : F} (hy : y ≠ 0) (hc : c ≠ 0)
+    (hQ' : (PP.mk x₂ y₂ 1).OnCurve W.a₄ W.a₆) :
+    (rcb W.a₄ W.a₆ ⟨0, y, 0⟩ ((PP.mk x₂ y₂ 1).smul c)).OnCurve W.a₄ W.a₆ ∧
+      ¬ (rcb W.a₄ W.a₆ ⟨0, y, 0⟩ ((PP.mk x₂ y₂ 1).smul c)).IsZero ∧
+      (rcb W.a₄ W.a₆ ⟨0, y, 0⟩ ((PP.mk x₂ y₂ 1).smul c)).pt W =
+        (PP.mk 0 y 0 : PP F).pt W + ((PP.mk x₂ y₂ 1).smul c).pt W := by
+  have hy2 : y₂ ≠ 0 := by
+    intro h0
+    apply hnr x₂
+    simp only [PP.OnCurve, h0] at hQ'
+    linear_combination -hQ'
+  have e := rcb_smul W.a₄ W.a₆ 1 c (PP.mk 0 y 0) (PP.mk x₂ y₂ 1)
+  have h1 : (PP.mk 0 y 0 : PP F).smul 1 = PP.mk 0 y 0 := by simp [PP.smul]
+  rw [h1, rcb_inf_left, PP.smul_smul] at e
+  rw [e]
+  have hk : (1 * c) ^ 2 * (y ^ 2 * y₂) ≠ 0 :=
+    mul_ne_zero (pow_ne_zero 2 (by simpa using hc)) (mul_ne_zero (pow_ne_zero 2 hy) hy2)
+  refine ⟨(onCurve_smul hk _).mpr hQ', ?_, ?_⟩
+  · intro hz; have := ((isZero_smul hk _).mp hz).2.2; simp at this
+  · rw [pt_smul W hk, pt_of_z_zero W (by rfl : (PP.mk 0 y 0 : PP F).z = 0), zero_add,
+      pt_smul W hc]
+
+/-- **RCB complete addition is the group law** (on any two valid projective points): the output
+is again a valid projective point and represents `P + Q`. -/
+theorem rcb_spec {P Q : PP F} (hP : P.OnCurve W.a₄ W.a₆) (hQ : Q.OnCurve W.a₄ W.a₆)
+    (nP : ¬ P.IsZero) (nQ : ¬ Q.IsZero) :
+    (rcb W.a₄ W.a₆ P Q).OnCurve W.a₄ W.a₆ ∧ ¬ (rcb W.a₄ W.a₆ P Q).IsZero ∧
+      (rcb W.a₄ W.a₆ P Q).pt W = P.pt W + Q.pt W := by
+  by_cases hPz : P.z = 0 <;> by_cases hQz : Q.z = 0
+  · -- both at infinity
+    have hy1 := y_ne_zero W hP hPz nP
+    have hy2 := y_ne_zero W hQ hQz nQ
+    have hx1 := x_zero_of_z_zero W hP hPz
+    have hx2 := x_zero_of_z_zero W hQ hQz
+    have hR : rcb W.a₄ W.a₆ P Q = ⟨0, (P.y * Q.y) ^ 2, 0⟩ := by
+      obtain ⟨x1, y1, z1⟩ := P; obtain ⟨x2, y2, z2⟩ := Q
+      simp only at hx1 hx2 hPz hQz
+      subst hx1 hx2 hPz hQz
+      simp only [rcb, PP.mk.injEq]
+      refine ⟨by ring, by ring, by ring⟩
+    rw [hR]
+    refine ⟨by simp [PP.OnCurve], fun h => (pow_ne_zero 2 (mul_ne_zero hy1 hy2)) h.2.1, ?_⟩
+    rw [pt_of_z_zero W (by rfl), pt_of_z_zero W hPz, pt_of_z_zero W hQz, add_zero]
+  · -- P at infinity, Q finite
+    have hy1 := y_ne_zero W hP hPz nP
+    have hx1 := x_zero_of_z_zero W hP hPz
+    obtain ⟨c, hcdef⟩ : ∃ c, c = Q.z := ⟨_, rfl⟩
+    obtain ⟨x₂, y₂, hQe⟩ : ∃ x₂ y₂, Q = (PP.mk x₂ y₂ 1).smul c :=
+      ⟨Q.x / Q.z, Q.y / Q.z, by rw [hcdef]; exact PP.eq_norm hQz⟩
+    have hc : c ≠ 0 := by rw [hcdef]; exact hQz
+    have hP' : P = PP.mk 0 P.y 0 := by
+      obtain ⟨x, y, z⟩ := P; simp only at hx1 hPz ⊢; subst hx1 hPz; rfl
+    have hQ' : (PP.mk x₂ y₂ 1).OnCurve W.a₄ W.a₆ := by
+      rw [← onCurve_smul hc]; rw [← hQe]; exact hQ
+    rw [hQe, hP']
+    exact rcb_inf_fin W h2 hnr hy1 hc hQ'
+  · -- P finite, Q at infinity
+    have hy2 := y_ne_zero W hQ hQz nQ
+    have hx2 := x_zero_of_z_zero W hQ hQz
+    obtain ⟨c, hcdef⟩ : ∃ c, c = P.z := ⟨_, rfl⟩
+    obtain ⟨x₁, y₁, hPe⟩ : ∃ x₁ y₁, P = (PP.mk x₁ y₁ 1).smul c :=
+      ⟨P.x / P.z, P.y / P.z, by rw [hcdef]; exact PP.eq_norm hPz⟩
+    have hc : c ≠ 0 := by rw [hcdef]; exact hPz
+    have hQ' : Q = PP.mk 0 Q.y 0 := by
+      obtain ⟨x, y, z⟩ := Q; simp only at hx2 hQz ⊢; subst hx2 hQz; rfl
+    have hP'' : (PP.mk x₁ y₁ 1).OnCurve W.a₄ W.a₆ := by
+      rw [← onCurve_smul hc]; rw [← hPe]; exact hP
+    rw [hPe, hQ', rcb_comm, add_comm]
+    exact rcb_inf_fin W h2 hnr hy2 hc hP''
+  · -- both finite
+    obtain ⟨c, hcdef⟩ : ∃ c, c = P.z := ⟨_, rfl⟩
+    obtain ⟨d, hddef⟩ : ∃ d, d = Q.z := ⟨_, rfl⟩
+    obtain ⟨x₁, y₁, hPe⟩ : ∃ x₁ y₁, P = (PP.mk x₁ y₁ 1).smul c :=
+      ⟨P.x / P.z, P.y / P.z, by rw [hcdef]; exact PP.eq_norm hPz⟩
+    obtain ⟨x₂, y₂, hQe⟩ : ∃ x₂ y₂, Q = (PP.mk x₂ y₂ 1).smul d :=
+      ⟨Q.x / Q.z, Q.y / Q.z, by rw [hddef]; exact PP.eq_norm hQz⟩
+    have hc : c ≠ 0 := by rw [hcdef]; exact hPz
+    have hd : d ≠ 0 := by rw [hddef]; exact hQz
+    have hP1 : (PP.mk x₁ y₁ 1).OnCurve W.a₄ W.a₆ := by
+      rw [← onCurve_smul hc, ← hPe]; exact hP
+    have hQ1 : (PP.mk x₂ y₂ 1).OnCurve W.a₄ W.a₆ := by
+      rw [← onCurve_smul hd, ← hQe]; exact hQ
+    have e₁ : W.toAffine.Equation x₁ y₁ := by
+      rw [equation_short]; simp only [PP.OnCurve] at hP1; linear_combination hP1
+    have e₂ : W.toAffine.Equation x₂ y₂ := by
+      rw [equation_short]; simp only [PP.OnCurve] at hQ1; linear_combination hQ1
+    obtain ⟨o, nz, hp⟩ := nrm_spec W h2 hnr e₁ e₂
+    have hk : (c * d) ^ 2 ≠ 0 := pow_ne_zero 2 (mul_ne_zero hc hd)
+    rw [hPe, hQe, rcb_smul]
+    refine ⟨(onCurve_smul hk _).mpr o, fun h => nz ((isZero_smul hk _).mp h), ?_⟩
+    rw [pt_smul W hk, hp, pt_smul W hc, pt_smul W hd]
+    have p1 : (PP.mk x₁ y₁ 1).pt W = Point.mk e₁ := by
+      rw [pt_of_equation W (by simp) (by simpa using e₁)]; simp
+    have p2 : (PP.mk x₂ y₂ 1).pt W = Point.mk e₂ := by
+      rw [pt_of_equation W (by simp) (by simpa using e₂)]; simp
+    rw [p1, p2]
+
+end Spec2
+
 end Gadget
 end Sonobe
