@@ -17,3 +17,5 @@ import Sonobe.Circuit.Bits
 import Sonobe.Circuit.EC.Affine
 import Sonobe.Circuit.EC.RCB
 import Sonobe.Circuit.EC.Projective
+import Sonobe.Circuit.EC.Convert
+import Sonobe.Circuit.EC.ScalarMul
