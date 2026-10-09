@@ -1,0 +1,87 @@
+import Sonobe.Circuit.Augmented
+
+/-!
+Soundness of the augmented circuit, piece by piece: from `AugRel` to the data of
+`Setup2.AugSound`.
+-/
+
+namespace Sonobe
+namespace Gadget
+
+open Finset WeierstrassCurve WeierstrassCurve.Affine Sonobe.IVC2 Sonobe.Nova
+open scoped Classical
+
+noncomputable local instance decEqZModAS {p : ℕ} : DecidableEq (ZMod p) :=
+  fun a b => Classical.propDecidable (a = b)
+
+variable {p1 p2 sN : ℕ} [Fact p1.Prime] [Fact p2.Prime]
+variable (W2 : WeierstrassCurve (ZMod p1)) [Short W2] [W2.IsElliptic]
+  (EA : EmuArith p1 p2) (sp : SpongeCfg (ZMod p1)) (dS dT : List (ZMod p1))
+  (pm1 : ℕ → Bool) (G : ZMod p1 × ZMod p1) (StepRel : (Fin sN → ZMod p1) → (Fin sN → ZMod p1) → Prop)
+
+/-! ### Values of the wires -/
+
+/-- The emulated element held by coordinate slot `k`. -/
+def vE (v : AugVars p1 sN) (k : Fin 12) : ZMod p2 := emuV p2 (v.pa k)
+
+def Uraw (v : AugVars p1 sN) : RawRU (ZMod p1) (ZMod p2 × ZMod p2) :=
+  ⟨(vE v 0, vE v 1), v.Uu, (vE v 2, vE v 3), fun _ => v.Ux⟩
+
+def uinRaw (v : AugVars p1 sN) : RawIU (ZMod p1) (ZMod p2 × ZMod p2) :=
+  ⟨(vE v 6, vE v 7), fun _ => v.uxIn⟩
+
+def piRaw (v : AugVars p1 sN) : ZMod p2 × ZMod p2 := (vE v 4, vE v 5)
+
+/-! ### 1. Base case and canonicity -/
+
+section Basic
+
+variable {v : AugVars p1 sN} {uux : ZMod p1}
+
+omit [Fact p2.Prime] in
+theorem aug_basecase (h : AugRel W2 EA sp dS dT pm1 G StepRel v uux) :
+    v.bc = (if v.i = 0 then 1 else 0) ∧ (v.i = 0 → v.z0 = v.zi) := by
+  obtain ⟨hz, hc, -⟩ := h
+  have hb := isZero_sound hz
+  refine ⟨hb, fun hi => funext fun k => ?_⟩
+  have hb1 : v.bc = 1 := by rw [hb, if_pos hi]
+  exact condEq_sound hb1 (hc k)
+
+theorem aug_canon (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8))
+    (h : AugRel W2 EA sp dS dT pm1 G StepRel v uux) :
+    (∀ k, Canon p2 (v.pa k)) ∧ (∀ k, Canon p2 (v.sa k)) := by
+  obtain ⟨-, -, h2, h3, -⟩ := h
+  exact ⟨fun k => tight_canon hp hp2 (h2 k), fun k => tight_canon hp hp2 (h3 k)⟩
+
+/-- An absorbed emulated variable is `encE` of its value. -/
+theorem pr_ao_eq_encE {a : ℕ → ZMod p1} {w : AbsWit p1} {o : ZMod p1 × ZMod p1}
+    (h32 : 2 ^ 32 ≤ p1) (hc : Canon p2 a) (h : EmuAbsRel a w o) : pr o = encE p1 p2 (emuV p2 a) := by
+  obtain ⟨h1, h2⟩ := emuAbs_sound h32 h
+  simp only [pr, encE, emuV_val hc, h1, h2]
+
+/-- **The hash `u_x` of the circuit is the model hash.** -/
+theorem aug_ux (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8))
+    (h : AugRel W2 EA sp dS dT pm1 G StepRel v uux) :
+    v.uxIn = hsC (p2 := p2) W2 sp dS v.pp v.i v.z0 v.zi (Uraw (p2 := p2) v)
+      (SecVar.val (p2 := p2) W2 (secOf v.sa v.sE v.sW)) := by
+  have h32 : 2 ^ 32 ≤ p1 := le_trans (Nat.le_add_right _ _) hp.le
+  obtain ⟨cp, cs⟩ := aug_canon W2 EA sp dS dT pm1 G StepRel hp hp2 h
+  obtain ⟨-, -, -, -, hsE, hsW, hU, hS, hN0, hN1, hux, -⟩ := h
+  have e1 : ∀ k : Fin 4, pr (v.aoU k) = encE p1 p2 (vE v (Fin.castLE (by norm_num) k)) :=
+    fun k => pr_ao_eq_encE h32 (cp _) (hU k)
+  have e2 : ∀ k, pr (v.aoS k) = encE p1 p2 (emuV p2 (v.sa k)) :=
+    fun k => pr_ao_eq_encE h32 (cs k) (hS k)
+  have e3 := coordsOf_pt_affine W2 hsE.1 hN0
+  have e4 := coordsOf_pt_affine W2 hsW.1 hN1
+  rw [hux]
+  unfold hsC
+  congr 1
+  simp only [Uraw, SecVar.val, secOf, encRU1, encRU2, encPtE, prs, List.ofFn_succ, List.ofFn_zero,
+    List.flatMap_cons, List.flatMap_nil, e2, e3, e4, Fin.isValue]
+  simp only [e1, vE, List.append_assoc, List.append_nil, List.cons_append, List.nil_append]
+  rfl
+
+end Basic
+
+end Gadget
+end Sonobe
