@@ -1,4 +1,6 @@
 import Sonobe.Circuit.Augmented
+import Sonobe.Circuit.CFBridge
+import Sonobe.IVC2.Soundness
 
 /-!
 Soundness of the augmented circuit, piece by piece: from `AugRel` to the data of
@@ -188,6 +190,144 @@ theorem aug_fs2 (hsmul : ∀ (n : ℕ) (P : W2.toAffine.Point), (n : ZMod p2) �
   rw [hv2, hv1]
 
 end Secondary
+
+end Gadget
+end Sonobe
+
+namespace Sonobe
+namespace Gadget
+
+open Finset
+open scoped Classical
+
+variable {p1 p2 : ℕ} [Fact p1.Prime] [Fact p2.Prime]
+
+theorem selF0_zero (v : ZMod p1) : selF0 0 v = v := by simp [selF0]
+theorem selF0_one (v : ZMod p1) : selF0 1 v = 0 := by simp [selF0]
+
+theorem selLimbs_zero (a : ℕ → ZMod p1) : selLimbs 0 a = a := by
+  funext j; simp [selLimbs, selF0]
+
+theorem selLimbs_one (a : ℕ → ZMod p1) : selLimbs 1 a = fun _ => 0 := by
+  funext j; simp [selLimbs, selF0]
+
+theorem canon_zero (hp2 : 0 < p2) : Canon p2 (fun _ : ℕ => (0 : ZMod p1)) := by
+  refine ⟨fun i _ => by simp, ?_⟩
+  simpa [limbsVal] using hp2
+
+theorem emuV_zero : emuV p2 (fun _ : ℕ => (0 : ZMod p1)) = 0 := by
+  simp [emuV, limbsVal]
+
+theorem encE_zero : encE p1 p2 (0 : ZMod p2) = [0, 0] := by simp [encE]
+
+end Gadget
+end Sonobe
+
+namespace Sonobe
+namespace Gadget
+
+open Finset WeierstrassCurve WeierstrassCurve.Affine Sonobe.IVC2 Sonobe.Nova
+open scoped Classical
+
+noncomputable local instance decEqZModAS2 {p : ℕ} : DecidableEq (ZMod p) :=
+  fun a b => Classical.propDecidable (a = b)
+
+variable {p1 p2 sN : ℕ} [Fact p1.Prime] [Fact p2.Prime]
+variable (W1 : WeierstrassCurve (ZMod p2)) [Short W1] [W1.IsElliptic]
+  (W2 : WeierstrassCurve (ZMod p1)) [Short W2] [W2.IsElliptic]
+  (EA : EmuArith p1 p2) (sp : SpongeCfg (ZMod p1)) (dS dT : List (ZMod p1))
+  (pm1 : ℕ → Bool) (G : ZMod p1 × ZMod p1)
+  (StepRel : (Fin sN → ZMod p1) → (Fin sN → ZMod p1) → Prop)
+  [Module (ZMod p1) W1.toAffine.Point] [Module (ZMod p2) W2.toAffine.Point]
+
+/-- The output hash when the base case is not active. -/
+theorem aug_uux_pos {v : AugVars p1 sN} {uux : ZMod p1}
+    (hsmul2 : ∀ (n : ℕ) (P : W2.toAffine.Point), (n : ZMod p2) • P = n • P)
+    (h2 : (2 : ZMod p1) ≠ 0) (hnr : ∀ e : ZMod p1, e ^ 3 + W2.a₄ * e + W2.a₆ ≠ 0) {r : ℕ}
+    (hord : ∀ P : W2.toAffine.Point, P ≠ 0 → addOrderOf P = r) (hrn : 2 ^ 128 < r)
+    (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8)) (hp2' : 2 ^ 128 ≤ p2)
+    (hG : W2.toAffine.Equation G.1 G.2) (hpm : natVal 254 pm1 = p1 - 1) (hi : v.i ≠ 0)
+    (h : AugRel W2 EA sp dS dT pm1 G StepRel v uux) :
+    uux = hsC (p2 := p2) W2 sp dS v.pp (v.i + 1) v.z0 v.nx
+      ⟨(vE v 8, vE v 9), v.Uu + rhoOf v.cb, (vE v 10, vE v 11), fun _ => v.Ux + rhoOf v.cb * v.uxIn⟩
+      ((secOf v.o2a v.o2E v.o2W).val W2) := by
+  have h32 : 2 ^ 32 ≤ p1 := le_trans (Nat.le_add_right _ _) hp.le
+  obtain ⟨hbc, -⟩ := aug_basecase W2 EA sp dS dT pm1 G StepRel h
+  have hbc0 : v.bc = 0 := by rw [hbc, if_neg hi]
+  obtain ⟨cp, cs⟩ := aug_canon W2 EA sp dS dT pm1 G StepRel hp hp2 h
+  obtain ⟨co2u, co2x, vE2, vW2, -⟩ := aug_fs2 W2 EA sp dS dT pm1 G StepRel hsmul2 h2 hnr hord hrn
+    hp hp2 hp2' hG hpm h
+  have co2 : ∀ k : Fin 8, Canon p2 (v.o2a k) := fun k => Fin.cases co2u (fun j => co2x j) k
+  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hstp, hN, hM, hA0, hA1,
+    huux⟩ := h
+  rw [hbc0] at hN hM hA0 hA1 huux
+  simp only [selLimbs_zero, selPP_zero, selF0_zero] at hN hM hA0 hA1 huux
+  have e1 : ∀ k : Fin 4, pr (v.aoN k) = encE p1 p2 (vE v (Fin.natAdd 8 k)) :=
+    fun k => pr_ao_eq_encE h32 (cp _) (hN k)
+  have e2 : ∀ k : Fin 8, pr (v.aoM k) = encE p1 p2 (emuV p2 (v.o2a k)) :=
+    fun k => pr_ao_eq_encE h32 (co2 k) (hM k)
+  have e3 := coordsOf_pt_affine W2 vE2.1 hA0
+  have e4 := coordsOf_pt_affine W2 vW2.1 hA1
+  have hlist : ([v.i + 1] ++ List.ofFn v.z0 ++ List.ofFn v.nx ++ [v.Uu + rhoOf v.cb, v.uxIn * rhoOf v.cb + v.Ux] ++
+      prs v.aoN ++ prs v.aoM ++ pr ((v.noM 0).x, (v.noM 0).y) ++ pr ((v.noM 1).x, (v.noM 1).y)) =
+      [v.i + 1] ++ List.ofFn v.z0 ++ List.ofFn v.nx ++
+        encRU1 p1 p2 ⟨(vE v 8, vE v 9), v.Uu + rhoOf v.cb, (vE v 10, vE v 11),
+          fun _ => v.Ux + rhoOf v.cb * v.uxIn⟩ ++
+        encRU2 (p2 := p2) W2 (SecVar.val (p2 := p2) W2 (secOf v.o2a v.o2E v.o2W)) := by
+    simp only [encRU1, encRU2, encPtE, prs, SecVar.val, secOf, List.ofFn_succ, List.ofFn_zero,
+      List.flatMap_cons, List.flatMap_nil, e1, e2, e3, e4, Fin.isValue]
+    rw [mul_comm v.uxIn, add_comm (rhoOf v.cb * v.uxIn)]
+    simp only [List.append_assoc, List.cons_append, List.nil_append, List.append_nil]
+    rfl
+  rw [huux]
+  unfold hsC
+  rw [hlist]
+
+/-- **`AugSound`, derived from the augmented circuit.** -/
+theorem augSound_of_circuit
+    (T : Setup2 (ZMod p1) W1.toAffine.Point (ZMod p2) W2.toAffine.Point (Fin sN → ZMod p1)
+      (ZMod p2 × ZMod p2) 7)
+    (hco : T.coords = coordsOf W1) (hhs : T.hs = hsC W2 sp dS) (hch : T.ch1n = ch1nC sp dT)
+    (hcfx : ∀ n c0 c1 c2, T.cfX n c0 c1 c2 = cfVec n c0 c1 c2)
+    (hstep : ∀ z z', StepRel z z' → z' = T.step z)
+    (hsmul2 : ∀ (n : ℕ) (P : W2.toAffine.Point), (n : ZMod p2) • P = n • P)
+    (circ : Circuit (ZMod p1) 1 T.nw1 (AugVars p1 sN))
+    (hsat : ∀ x w, T.k1.r1cs.Sat x w → circ.rel x (circ.decode w))
+    (hrel : ∀ x ω, circ.rel x ω → AugRel W2 EA sp dS dT pm1 G StepRel ω (x 0))
+    (h2 : (2 : ZMod p1) ≠ 0) (hnr : ∀ e : ZMod p1, e ^ 3 + W2.a₄ * e + W2.a₆ ≠ 0) {r : ℕ}
+    (hord : ∀ P : W2.toAffine.Point, P ≠ 0 → addOrderOf P = r) (hrn : 2 ^ 128 < r)
+    (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8)) (hp2' : 2 ^ 128 ≤ p2)
+    (hG : W2.toAffine.Equation G.1 G.2) (hpm : natVal 254 pm1 = p1 - 1) :
+    T.AugSound := by
+  intro w' u' hinc
+  have h : AugRel W2 EA sp dS dT pm1 G StepRel (circ.decode w'.w) (u'.x 0) :=
+    hrel _ _ (hsat _ _ hinc.1)
+  set v := circ.decode w'.w with hv
+  refine ⟨v.pp, v.i, v.z0, v.zi, Uraw v, uinRaw v, piRaw v, (secOf v.sa v.sE v.sW).val W2,
+    (cfI0 v).val W2, (cfI1 v).val W2, v.cp0.pt W2, v.cp1.pt W2,
+    ((natVal 128 (fun j => decide (v.rb0 j = 1)) : ℕ) : ZMod p2),
+    ((natVal 128 (fun j => decide (v.rb1 j = 1)) : ℕ) : ZMod p2),
+    (vE v 8, vE v 9), (vE v 10, vE v 11), ?_, ?_, ?_, ?_, ?_⟩
+  · exact (aug_basecase W2 EA sp dS dT pm1 G StepRel h).2
+  · funext _
+    simp only [uinRaw]
+    rw [hhs]
+    exact aug_ux W2 EA sp dS dT pm1 G StepRel hp hp2 h
+  · -- first CycleFold instance
+    have h32 : 2 ^ 32 < p1 := lt_of_lt_of_le (by omega : 2 ^ 32 < 2 ^ 32 + 2 ^ 33) hp.le
+    obtain ⟨hbool, hn, -⟩ := aug_rho W2 EA sp dS dT pm1 G StepRel hp hp2 hpm h
+    obtain ⟨-, hrv⟩ := rho_canon h32 hp2' hbool
+    rw [hcfx, hch]
+    funext j
+    fin_cases j <;> simp [SecInc.val, cfI0, cfVec, Uraw, piRaw, vE, hrv, hn]
+  · -- second CycleFold instance
+    have h32 : 2 ^ 32 < p1 := lt_of_lt_of_le (by omega : 2 ^ 32 < 2 ^ 32 + 2 ^ 33) hp.le
+    obtain ⟨hbool, hn, -⟩ := aug_rho W2 EA sp dS dT pm1 G StepRel hp hp2 hpm h
+    obtain ⟨-, hrv⟩ := rho_canon h32 hp2' hbool
+    rw [hcfx, hch]
+    funext j
+    fin_cases j <;> simp [SecInc.val, cfI1, cfVec, Uraw, uinRaw, vE, hrv, hn]
+  · sorry
 
 end Gadget
 end Sonobe
