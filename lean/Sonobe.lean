@@ -30,3 +30,5 @@ import Sonobe.Circuit.Coords
 import Sonobe.Circuit.CFBridge
 import Sonobe.Circuit.MulAdd
 import Sonobe.Circuit.Emulated.Absorb
+import Sonobe.Circuit.Emulated.Canon
+import Sonobe.Circuit.FS2
