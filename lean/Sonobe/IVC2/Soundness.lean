@@ -42,11 +42,11 @@ def Setup2.AugSound : Prop :=
       (cfU : RunningInstance F2 G2 T.l2) (cu0 cu1 : IncomingInstance G2 F2 T.l2)
       (cπ0 cπ1 : G2) (cρ0 cρ1 : F2) (pe pw : C1),
       (i = 0 → z0 = zi) ∧ uin.x = (fun _ => T.hs pp i z0 zi U cfU) ∧
-      cu0.x = T.cfX (T.ch1n U uin π) U.cmE π pe ∧
-      cu1.x = T.cfX (T.ch1n U uin π) U.cmW uin.cmW pw ∧
+      cu0.x = T.cfX (T.ch1n pp U uin π) U.cmE π pe ∧
+      cu1.x = T.cfX (T.ch1n pp U uin π) U.cmW uin.cmW pw ∧
       u'.x = (fun _ => T.hs pp (i + 1) z0 (T.step zi)
         (if i = 0 then T.rawOf (dummyRU F1 G1 1)
-          else ⟨pe, U.u + T.ch1 U uin π, pw, U.x + T.ch1 U uin π • uin.x⟩)
+          else ⟨pe, U.u + T.ch1 pp U uin π, pw, U.x + T.ch1 pp U uin π • uin.x⟩)
         (if i = 0 then dummyRU F2 G2 T.l2
           else foldInstance cρ1 cπ1 (foldInstance cρ0 cπ0 cfU cu0) cu1))
 
@@ -113,9 +113,9 @@ theorem sound_step (hA : T.AugSound) (hC : T.CFSound) (hH : T.HsInj)
       fold_sound T.k2 hE2 hW2 cfU cu0 cπ0 b12 b13 b23 l1 l2 l3
     -- the CycleFold circuits certify genuine group elements and the fold identities
     obtain ⟨P0, P1, P2, e0, e1, e2, hP2⟩ :=
-      hC inc0 cu0 hinc0 _ _ _ _ (T.ch1n_small _ _ _) hx0
+      hC inc0 cu0 hinc0 _ _ _ _ (T.ch1n_small _ _ _ _) hx0
     obtain ⟨Q0, Q1, Q2, f0, f1', f2', hQ2⟩ :=
-      hC inc1 cu1 hinc1 _ _ _ _ (T.ch1n_small _ _ _) hx1
+      hC inc1 cu1 hinc1 _ _ _ _ (T.ch1n_small _ _ _ _) hx1
     obtain ⟨cmE, ur, cmW, xr⟩ := U
     simp only at e0 f0
     obtain ⟨ucmW, uinx⟩ := uin
@@ -124,7 +124,7 @@ theorem sound_step (hA : T.AugSound) (hC : T.CFSound) (hH : T.HsInj)
     set uin' : IncomingInstance G1 F1 1 := ⟨Q1, uinx⟩ with huin'
     have hrawU : T.rawOf U' = ⟨cmE, ur, cmW, xr⟩ := by simp [Setup2.rawOf, hU', e0, f0]
     have hrawI : T.rawOfI uin' = ⟨ucmW, uinx⟩ := by simp [Setup2.rawOfI, huin', f1']
-    have hUU : P.U = foldInstance ((T.ch1n ⟨cmE, ur, cmW, xr⟩ ⟨ucmW, uinx⟩ π : ℕ) : F1) P1 U' uin' := by
+    have hUU : P.U = foldInstance ((T.ch1n T.pph ⟨cmE, ur, cmW, xr⟩ ⟨ucmW, uinx⟩ π : ℕ) : F1) P1 U' uin' := by
       have hc := congrArg RawRU.cmE hUeq
       have hw := congrArg RawRU.cmW hUeq
       have hu := congrArg RawRU.u hUeq

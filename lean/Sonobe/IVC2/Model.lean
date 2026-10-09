@@ -50,18 +50,18 @@ structure Setup2 (F1 G1 F2 G2 S C1 : Type*) [Field F1] [AddCommGroup G1] [Module
   /-- `H(pph, i, z₀, zᵢ, U, cf_U)` (circuits.rs:138) -/
   hs : F1 → F1 → S → S → RawRU F1 C1 → RunningInstance F2 G2 l2 → F1
   /-- Fiat–Shamir challenge (an integer `< 2^128`) of the primary fold, from the raw absorbed data -/
-  ch1n : RawRU F1 C1 → RawIU F1 C1 → C1 → ℕ
+  ch1n : F1 → RawRU F1 C1 → RawIU F1 C1 → C1 → ℕ
   /-- challenge of a secondary fold (prover side) -/
-  ch2 : RunningInstance F2 G2 l2 → IncomingInstance G2 F2 l2 → G2 → F2
+  ch2 : F1 → RunningInstance F2 G2 l2 → IncomingInstance G2 F2 l2 → G2 → F2
   /-- public inputs of one CycleFold circuit: `(ρ, P₀, P₁, P₂)` -/
   cfX : ℕ → C1 → C1 → C1 → Fin l2 → F2
   /-- the challenge is `< 2^128` -/
-  ch1n_small : ∀ U u π, ch1n U u π < 2 ^ 128
+  ch1n_small : ∀ pp U u π, ch1n pp U u π < 2 ^ 128
 
 variable (T : Setup2 F1 G1 F2 G2 S C1)
 
 /-- The primary challenge as a field element. -/
-def Setup2.ch1 (U : RawRU F1 C1) (u : RawIU F1 C1) (π : C1) : F1 := (T.ch1n U u π : F1)
+def Setup2.ch1 (pp : F1) (U : RawRU F1 C1) (u : RawIU F1 C1) (π : C1) : F1 := (T.ch1n pp U u π : F1)
 
 def Setup2.rawOf (U : RunningInstance F1 G1 1) : RawRU F1 C1 :=
   ⟨T.coords U.cmE, U.u, T.coords U.cmW, U.x⟩
@@ -71,7 +71,7 @@ def Setup2.rawOfI (u : IncomingInstance G1 F1 1) : RawIU F1 C1 := ⟨T.coords u.
 /-- Primary fold, verifier side, on proper objects. -/
 def Setup2.fold1 (U : RunningInstance F1 G1 1) (u : IncomingInstance G1 F1 1) (π : G1) :
     RunningInstance F1 G1 1 :=
-  foldInstance (T.ch1 (T.rawOf U) (T.rawOfI u) (T.coords π)) π U u
+  foldInstance (T.ch1 T.pph (T.rawOf U) (T.rawOfI u) (T.coords π)) π U u
 
 end IVC2
 end Sonobe
