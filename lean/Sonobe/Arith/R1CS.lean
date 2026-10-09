@@ -36,6 +36,10 @@ theorem zvec_smul (ρ u : F) (x : Fin l → F) (w : Fin nw → F) :
     zvec (ρ * u) (ρ • x) (ρ • w) = ρ • zvec u x w := by
   ext i; rcases i with _ | _ | _ <;> simp [zvec]
 
+theorem zvec_fold (u ρ : F) (x x' : Fin l → F) (w w' : Fin nw → F) :
+    zvec (u + ρ) (x + ρ • x') (w + ρ • w') = zvec u x w + ρ • zvec 1 x' w' := by
+  ext i; rcases i with _ | _ | _ <;> simp [zvec]
+
 /-- `Az ∘ Bz − z₀ • Cz`. -/
 def eval (r : R1CS F m l nw) (z : Col l nw → F) : Fin m → F :=
   (r.A *ᵥ z) * (r.B *ᵥ z) - z (Sum.inl ()) • (r.C *ᵥ z)

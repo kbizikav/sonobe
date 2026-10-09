@@ -82,11 +82,7 @@ theorem fold_complete (k : Key F G m l nw) {U W u w} (hU : k.Running U W) (hu : 
       (foldWitness ρ rT (crossTerm k U W u w) W w) := by
   obtain ⟨hr, hE, hW⟩ := hU
   obtain ⟨hs, hW'⟩ := hu
-  have hz : zvec (U.u + ρ) (U.x + ρ • u.x) (W.w + ρ • w.w) =
-      zvec U.u U.x W.w + ρ • zvec 1 u.x w.w := by
-    have := zvec_add U.u (ρ * 1) U.x (ρ • u.x) W.w (ρ • w.w)
-    rw [mul_one] at this
-    rw [this, ← zvec_smul ρ 1 u.x w.w, mul_one]
+  have hz := zvec_fold U.u ρ U.x u.x W.w w.w
   refine ⟨?_, ?_, ?_⟩
   · simp only [RelaxedSat, foldInstance, foldWitness, hz, R1CS.eval_fold]
     have h1 : k.r1cs.eval (zvec U.u U.x W.w) = W.e := hr
