@@ -41,3 +41,5 @@ import Sonobe.EVM.Decider
 import Sonobe.FinalDecider
 import Sonobe.Circuit.EC.ScalarMulComplete
 import Sonobe.Circuit.CFComplete
+import Sonobe.Circuit.Emulated.Complete
+import Sonobe.Circuit.FS2Complete
