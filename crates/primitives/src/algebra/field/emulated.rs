@@ -1384,6 +1384,42 @@ mod tests {
 
     use super::*;
 
+    /// The static bounds of `u + rho` and `b * rho + a` (the operands of the `modulo` calls of the
+    /// Nova verifier) must agree with the model in `lean/Sonobe/Circuit/EmuArithConcrete.lean`;
+    /// regenerate with `lake env lean --run diff/EmulatedBounds.lean` in `lean/`.
+    #[test]
+    fn test_static_bounds_match_lean() -> Result<(), Box<dyn Error>> {
+        use ark_bn254::{Fq as TFq, Fr as BFr};
+        use ark_r1cs_std::boolean::Boolean;
+
+        let cs = ConstraintSystem::<BFr>::new_ref();
+        let rng = &mut thread_rng();
+        let u = EmulatedFieldVar::<BFr, TFq>::new_witness(cs.clone(), || Ok(TFq::rand(rng)))?;
+        let a = EmulatedFieldVar::<BFr, TFq>::new_witness(cs.clone(), || Ok(TFq::rand(rng)))?;
+        let bits = Vec::<Boolean<BFr>>::new_witness(cs.clone(), || {
+            Ok((0..128).map(|_| rng.gen_bool(0.5)).collect::<Vec<_>>())
+        })?;
+        let rho = EmulatedFieldVar::<BFr, TFq>::from_bits_le(&bits)?;
+        let fmt = |name: &str, bounds: &[Bounds]| {
+            let mut line = format!("{name} {}", bounds.len());
+            for b in bounds {
+                line += &format!(" [{},{}]", b.0, b.1);
+            }
+            line
+        };
+        let got = format!(
+            "{}\n{}\n",
+            fmt("add", &(u.clone() + &rho).bounds),
+            fmt("mul", &(u.clone() * &rho + &a).bounds)
+        );
+        let expected = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../lean/diff/emulated_bounds.txt"
+        ))?;
+        assert_eq!(got, expected);
+        Ok(())
+    }
+
     #[test]
     fn test_eq() -> Result<(), Box<dyn Error>> {
         let cs = ConstraintSystem::<Fr>::new_ref();

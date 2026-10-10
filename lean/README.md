@@ -26,7 +26,8 @@ decider circuit and the contract (with precompiles as partial functions).
 * **Emulated-field arithmetic**: only the completeness half, `EmuArith.Complete` (the honest
   prover can satisfy `modulo`). Soundness is derived; the theorems assume the synthesis of the
   carry plans succeeded (it is part of the relations `ModRel`/`CongRel`) and that the static bounds
-  in `Emulated/{Bounds,Shapes}` match `emulated.rs`. The statements take `bitsLen(p₂−1) = 254`.
+  in `Emulated/{Bounds,Shapes}` match `emulated.rs` (checked for `u + ρ` and `b·ρ + a` by
+  `diff/` and the Rust test `test_static_bounds_match_lean`; the R1CS row shapes are not covered). The statements take `bitsLen(p₂−1) = 254`.
 * **Model fidelity** (audited by hand, plus an independent review of each module against the Rust
   code): that `AugRel`, `CFRel`, `DecRel` and the contract model are consequences of the Rust
   constraints, and for completeness that they are also sufficient (R1CS satisfiability); that the
