@@ -293,6 +293,16 @@ impl<F: SonobeField, Cfg> LimbedVar<F, Cfg, true> {
         }
 
         let len = max(lb.bits(), ub.bits()) as usize;
+        // In the loose mode only the bit length of every limb is enforced, so
+        // the variable can take any value representable by whole limbs. The
+        // static bounds must account for that: if `len` is not a multiple of
+        // the limb size, the top limb is only constrained to `BITS_PER_LIMB`
+        // bits, not to `len % BITS_PER_LIMB` bits.
+        let len = if range_check_mode == RangeCheckMode::Loose {
+            len.div_ceil(F::BITS_PER_LIMB) * F::BITS_PER_LIMB
+        } else {
+            len
+        };
         let zero = BigInt::zero();
         let one = BigInt::one();
         let min = &one - (&one << len);
@@ -1478,6 +1488,46 @@ mod tests {
         // A non-zero multiple of `p` must NOT be accepted as equal to zero.
         assert!(!cs.is_satisfied()?);
 
+        Ok(())
+    }
+
+    /// A loosely allocated integer whose bit length is not a multiple of the
+    /// limb size must not be able to exceed its declared bound in the top limb.
+    #[test]
+    fn test_loose_alloc_top_limb_range() -> Result<(), Box<dyn Error>> {
+        let alloc = |x: BigInt, bits: usize| -> Result<_, Box<dyn Error>> {
+            let cs = ConstraintSystem::<Fr>::new_ref();
+            let ub = (BigInt::one() << bits) - BigInt::one();
+            let v = EmulatedIntVar::<Fr>::alloc(
+                cs.clone(),
+                || Ok((x, Bounds(BigInt::zero(), ub))),
+                AllocationMode::Witness,
+                RangeCheckMode::Loose,
+            )?;
+            assert!(cs.is_satisfied()?);
+            cs.finalize();
+            let a = cs.borrow().unwrap().assignments.clone();
+            let z = [a.instance_assignment.clone(), a.witness_assignment.clone()].concat();
+            let m = cs.to_matrices()?.into_iter().next().unwrap().1;
+            Ok((m, z, v))
+        };
+        let holds = |m: &Vec<Vec<Vec<(Fr, usize)>>>, z: &[Fr]| {
+            let ev = |row: &Vec<(Fr, usize)>| row.iter().map(|(c, i)| *c * z[*i]).sum::<Fr>();
+            (0..m[0].len()).all(|r| ev(&m[0][r]) * ev(&m[1][r]) == ev(&m[2][r]))
+        };
+        // declared as a 40-bit number; loose allocation only constrains whole limbs
+        let (m, z, v) = alloc((BigInt::from(7u64) << 32) + BigInt::from(5u64), 40)?;
+        assert_eq!(v.bounds[1].1, BigInt::from((1u64 << 32) - 1));
+        assert!(holds(&m, &z));
+        // control: another honest 40-bit witness
+        let (_, z2, _) = alloc((BigInt::from(3u64) << 32) + BigInt::from(9u64), 40)?;
+        assert!(holds(&m, &z2));
+        // The constraints only depend on the number of limbs, so the witness
+        // of an honest 52-bit allocation (top limb 2^19) also satisfies them.
+        let (_, z3, _) = alloc((BigInt::from(1u64 << 19) << 32) + BigInt::from(5u64), 52)?;
+        assert!(holds(&m, &z3));
+        // ... so the static bounds of the variable must cover it
+        assert!(v.bounds[1].1 >= BigInt::from(1u64 << 19));
         Ok(())
     }
 
