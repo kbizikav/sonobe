@@ -1,5 +1,6 @@
 import Sonobe.Circuit.AugSound
 import Sonobe.Circuit.Decider.PedersenOpen
+import Sonobe.Circuit.Emulated.R1CSEval
 
 /-!
 The decider circuit `CycleFoldBasedIVCDeciderCircuit::generate_constraints`
@@ -15,7 +16,7 @@ challenges.mark_as_public()                                -- the raw squeezed e
 U.cm_e, U.cm_w, u.cm_w, π.cm_t . mark_as_public()          -- packed: 2 elements per coordinate
 decide_running(dk1, WW, UU)       -- relaxed R1CS over F1; Pedersen open = UU.cm_e, UU.cm_w public
                                   --   (packed) + the committed variables for the CP-SNARK
-decide_running(dk2, cf_W, cf_U)   -- relaxed R1CS over the emulated F2 (assumption `EmuR1CS`);
+decide_running(dk2, cf_W, cf_U)   -- relaxed R1CS over the emulated F2 (`emuR1CS_sound`);
                                   --   Pedersen open: msm + enforce_equal (`OpenRel`)
 u.x = [H(i, z0, zi, U, cf_U)]
 ```
@@ -32,20 +33,6 @@ noncomputable local instance decEqZModDP {p : ℕ} : DecidableEq (ZMod p) :=
   fun a b => Classical.propDecidable (a = b)
 
 variable {p1 p2 sN : ℕ} [Fact p1.Prime] [Fact p2.Prime]
-
-/-- **Assumption `EmuR1CS`** (the emulated-arithmetic counterpart of `EmuArith`): the constraint
-system of the relaxed R1CS check over the emulated field — `add_unaligned`/`mul_unaligned`, carry
-chains and `modulo` of `evaluate_r1cs` followed by `enforce_equivalent` — implies the relaxed
-R1CS relation of the represented field elements, for canonical inputs. `Pred` collects the
-constraints with all internal witnesses hidden. -/
-structure EmuR1CS (p1 p2 : ℕ) [Fact p1.Prime] [Fact p2.Prime] {m l nw : ℕ}
-    (R : R1CS (ZMod p2) m l nw) where
-  Pred : (ℕ → ZMod p1) → (Fin l → ℕ → ZMod p1) → (Fin nw → ℕ → ZMod p1) →
-    (Fin m → ℕ → ZMod p1) → Prop
-  sound : ∀ u x w e, Canon p2 u → (∀ j, Canon p2 (x j)) → (∀ j, Canon p2 (w j)) →
-    (∀ j, Canon p2 (e j)) → Pred u x w e →
-      R.RelaxedSat (emuV p2 u) (fun j => emuV p2 (x j)) (fun j => emuV p2 (w j))
-        (fun j => emuV p2 (e j))
 
 /-- Constant Pedersen generators of the secondary key (as projective constants). -/
 structure PedConst (p : ℕ) where
@@ -89,7 +76,7 @@ def vecN {m : ℕ} (a : Fin m → ℕ → ZMod p1) : ℕ → ℕ → ZMod p1 :=
 
 variable (W2 : WeierstrassCurve (ZMod p1)) [Short W2] [W2.IsElliptic]
   {m1 nw1 m2 nw2 : ℕ}
-  (R1 : R1CS (ZMod p1) m1 1 nw1) (R2 : R1CS (ZMod p2) m2 7 nw2) (EM : EmuR1CS p1 p2 R2)
+  (R1 : R1CS (ZMod p1) m1 1 nw1) (R2 : R1CS (ZMod p2) m2 7 nw2)
   (sp : SpongeCfg (ZMod p1)) (dS dT : List (ZMod p1)) (pm1 : ℕ → Bool) (G : ZMod p1 × ZMod p1)
   (PE PW : PedConst p1) (pph : ZMod p1)
 
@@ -109,7 +96,7 @@ def DecRel (d : DecWit p1 sN m1 nw1 m2 nw2) (x : DecPub p1 sN) : Prop :=
   (∀ j, TightRel 8 32 (mlimb p2) (d.cwe j) (d.cwew j)) ∧
   (∀ j, TightRel 8 32 (mlimb p2) (d.cww j) (d.cwww j)) ∧
   TightRel 8 32 (mlimb p2) d.cre d.crew ∧ TightRel 8 32 (mlimb p2) d.crw d.crww ∧
-  EM.Pred (d.v.sa 0) (fun j => d.v.sa j.succ) d.cww d.cwe ∧
+  EmuR1CSC p2 R2 (d.v.sa 0) (fun j => d.v.sa j.succ) d.cww d.cwe ∧
   OpenRel W2 m2 G PE.g PE.h (vecN d.cwe) d.cre d.v.sE d.oE ∧
   OpenRel W2 nw2 G PW.g PW.h (vecN d.cww) d.crw d.v.sW d.oW
 
@@ -139,11 +126,12 @@ theorem dec_sound
     (hsmul : ∀ (n : ℕ) (P : W2.toAffine.Point), (n : ZMod p2) • P = n • P)
     (h2 : (2 : ZMod p1) ≠ 0) (hnr : ∀ e : ZMod p1, e ^ 3 + W2.a₄ * e + W2.a₆ ≠ 0) {r2 : ℕ}
     (hord : ∀ P : W2.toAffine.Point, P ≠ 0 → addOrderOf P = r2) (hrn : 2 ^ 252 < r2)
-    (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8)) (hpm : natVal 254 pm1 = p1 - 1)
+    (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8))
+    (hbits : bitsLen ((p2 : ℤ) - 1) = 254) (hpm : natVal 254 pm1 = p1 - 1)
     (hgE : ∀ i < m2, (PE.g i).OnCurve W2.a₄ W2.a₆) (hhE : PE.h.OnCurve W2.a₄ W2.a₆)
     (hgW : ∀ i < nw2, (PW.g i).OnCurve W2.a₄ W2.a₆) (hhW : PW.h.OnCurve W2.a₄ W2.a₆)
     {d : DecWit p1 sN m1 nw1 m2 nw2} {x : DecPub p1 sN}
-    (h : DecRel W2 R1 R2 EM sp dS dT pm1 G PE PW pph d x) :
+    (h : DecRel W2 R1 R2 sp dS dT pm1 G PE PW pph d x) :
     d.v.i ≠ 0 ∧ x.i = d.v.i ∧ x.z0 = d.v.z0 ∧ x.zi = d.v.zi ∧
     -- the public points are the encodings of the coordinates
     (∀ k, pr (x.pt k) = encE p1 p2 (vE d.v (pubIdx k))) ∧
@@ -177,7 +165,7 @@ theorem dec_sound
   · rw [hxc, ← hch, hn128]
   · have cE : ∀ j, Canon p2 (d.cwe j) := fun j => tight_canon hp hp2 (tE j)
     have cW : ∀ j, Canon p2 (d.cww j) := fun j => tight_canon hp hp2 (tW j)
-    exact EM.sound _ _ _ _ (cs 0) (fun j => cs j.succ) cW cE hem
+    exact emuR1CS_sound hp hp2 hbits (cs 0) (fun j => cs j.succ) cW cE hem
   · have := open_sound W2 hsmul h2 hnr hord hrn h32 hgE hhE hvE hoE
     simpa [vecN_apply] using this
   · have := open_sound W2 hsmul h2 hnr hord hrn h32 hgW hhW hvW hoW

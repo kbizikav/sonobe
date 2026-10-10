@@ -1,3 +1,4 @@
+import Sonobe.Circuit.EmuArithConcrete
 import Sonobe.Circuit.AugSound
 import Sonobe.Circuit.CFBridge
 
@@ -28,12 +29,14 @@ noncomputable local instance decEqZModFin {p : ℕ} : DecidableEq (ZMod p) :=
 variable {p1 p2 sN : ℕ} [Fact p1.Prime] [Fact p2.Prime]
 variable (W1 : WeierstrassCurve (ZMod p2)) [Short W1] [W1.IsElliptic]
   (W2 : WeierstrassCurve (ZMod p1)) [Short W2] [W2.IsElliptic]
-  (EA : EmuArith p1 p2) (sp : SpongeCfg (ZMod p1)) (dS dT : List (ZMod p1))
+  (sp : SpongeCfg (ZMod p1)) (dS dT : List (ZMod p1))
   (pm1 : ℕ → Bool) (G1 : ZMod p2 × ZMod p2) (G2 : ZMod p1 × ZMod p1)
   (StepRel : (Fin sN → ZMod p1) → (Fin sN → ZMod p1) → Prop)
   [Module (ZMod p1) W1.toAffine.Point] [Module (ZMod p2) W2.toAffine.Point]
 
 theorem ivc_sound_of_circuits
+    (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8))
+    (hbits : bitsLen ((p2 : ℤ) - 1) = 254)
     (T : Setup (ZMod p1) W1.toAffine.Point (ZMod p2) W2.toAffine.Point (Fin sN → ZMod p1)
       (ZMod p2 × ZMod p2) 7)
     -- identification of the abstract model with the concrete hash, challenge and wiring
@@ -45,7 +48,7 @@ theorem ivc_sound_of_circuits
     -- the two circuits and the trusted R1CS synthesis
     (circA : Circuit (ZMod p1) 1 T.nw1 (AugVars p1 sN))
     (hsatA : ∀ x w, T.k1.r1cs.Sat x w → circA.rel x (circA.decode w))
-    (hrelA : ∀ x ω, circA.rel x ω → AugRel W2 EA sp dS dT pm1 G2 StepRel ω (x 0))
+    (hrelA : ∀ x ω, circA.rel x ω → AugRel W2 (EmuArith.concrete hp hp2 hbits) sp dS dT pm1 G2 StepRel ω (x 0))
     (circC : Circuit (ZMod p2) 7 T.nw2 (CFWit (ZMod p2))) (hcompC : circC.Compiles T.k2.r1cs)
     (hrelC : ∀ x ω, circC.rel x ω ↔ CFRel W1 128 G1 (x 0) (x 1) (x 2) (x 3) (x 4) (x 5) (x 6) ω)
     -- curve and field facts
@@ -56,7 +59,7 @@ theorem ivc_sound_of_circuits
     (h2b : (2 : ZMod p1) ≠ 0) (hnr2 : ∀ e : ZMod p1, e ^ 3 + W2.a₄ * e + W2.a₆ ≠ 0) {r2 : ℕ}
     (hord2 : ∀ P : W2.toAffine.Point, P ≠ 0 → addOrderOf P = r2) (hrn2 : 2 ^ 128 < r2)
     (hG2 : W2.toAffine.Equation G2.1 G2.2)
-    (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8)) (hp2' : 2 ^ 128 ≤ p2)
+    (hp2' : 2 ^ 128 ≤ p2)
     (hpm : natVal 254 pm1 = p1 - 1)
     -- cryptographic assumptions
     (hH : T.HsInj) (hE1 : ¬ T.k1.ckE.DLRel) (hW1 : ¬ T.k1.ckW.DLRel)
@@ -65,7 +68,7 @@ theorem ivc_sound_of_circuits
     ∀ n, n + 1 ≤ N → ∀ (zn : Fin sN → ZMod p1) (P : Proof T), T.Good (n + 1) z0 zn P →
       zn = T.step^[n + 1] z0 :=
   ivc_sound T
-    (augSound_of_circuit W1 W2 EA sp dS dT pm1 G2 StepRel T hco hhs hch hcfx hstep hsmul2 circA
+    (augSound_of_circuit W1 W2 (EmuArith.concrete hp hp2 hbits) sp dS dT pm1 G2 StepRel T hco hhs hch hcfx hstep hsmul2 circA
       hsatA hrelA h2b hnr2 hord2 hrn2 hp hp2 hp2' hG2 hpm)
     (cfSound_of_circuit W1 T hco hcfx hsmul1 hG1 circC hcompC hrelC hb1 h2a hnr1 hord1 hrn1 hp2')
     hH hE1 hW1 hE2 hW2 f1 f2 hcast z0

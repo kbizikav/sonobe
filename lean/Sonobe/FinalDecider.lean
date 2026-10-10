@@ -80,7 +80,7 @@ section Final
 
 variable (W1 : WeierstrassCurve (ZMod p2)) [Short W1] [W1.IsElliptic]
   (W2 : WeierstrassCurve (ZMod p1)) [Short W2] [W2.IsElliptic]
-  (EA : EmuArith p1 p2) (sp : SpongeCfg (ZMod p1)) (dS dT : List (ZMod p1))
+  (sp : SpongeCfg (ZMod p1)) (dS dT : List (ZMod p1))
   (pm1 : ℕ → Bool) (G1 : ZMod p2 × ZMod p2) (G2 : ZMod p1 × ZMod p1)
   (StepRel : (Fin sN → ZMod p1) → (Fin sN → ZMod p1) → Prop)
   [Module (ZMod p1) W1.toAffine.Point] [Module (ZMod p2) W2.toAffine.Point]
@@ -88,6 +88,8 @@ variable (W1 : WeierstrassCurve (ZMod p2)) [Short W1] [W1.IsElliptic]
 theorem evm_decider_sound
     {PWd G₂ G_T : Type*} [AddCommGroup G₂] [Module (ZMod p1) G₂] [AddCommGroup G_T]
     [Module (ZMod p1) G_T]
+    (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8))
+    (hbits : bitsLen ((p2 : ℤ) - 1) = 254)
     (T : Setup (ZMod p1) W1.toAffine.Point (ZMod p2) W2.toAffine.Point (Fin sN → ZMod p1)
       (ZMod p2 × ZMod p2) 7)
     -- identification of the abstract model with the concrete hash, challenge and wiring
@@ -99,11 +101,11 @@ theorem evm_decider_sound
     -- the augmented and the CycleFold circuit
     (circA : Circuit (ZMod p1) 1 T.nw1 (AugVars p1 sN))
     (hsatA : ∀ x w, T.k1.r1cs.Sat x w → circA.rel x (circA.decode w))
-    (hrelA : ∀ x ω, circA.rel x ω → AugRel W2 EA sp dS dT pm1 G2 StepRel ω (x 0))
+    (hrelA : ∀ x ω, circA.rel x ω → AugRel W2 (EmuArith.concrete hp hp2 hbits) sp dS dT pm1 G2 StepRel ω (x 0))
     (circC : Circuit (ZMod p2) 7 T.nw2 (CFWit (ZMod p2))) (hcompC : circC.Compiles T.k2.r1cs)
     (hrelC : ∀ x ω, circC.rel x ω ↔ CFRel W1 128 G1 (x 0) (x 1) (x 2) (x 3) (x 4) (x 5) (x 6) ω)
     -- the decider circuit, its synthesis and the emulated R1CS assumption
-    (EM : EmuR1CS p1 p2 T.k2.r1cs) (PEc PWc : PedConst p1) (pph : ZMod p1) (hpph : T.pph = pph)
+    (PEc PWc : PedConst p1) (pph : ZMod p1) (hpph : T.pph = pph)
     (hkE : T.k2.ckE = PedersenKey.mk (F := ZMod p2) (fun i : Fin T.m2 => (PEc.g i).pt W2)
       (PEc.h.pt W2))
     (hkW : T.k2.ckW = PedersenKey.mk (F := ZMod p2) (fun i : Fin T.nw2 => (PWc.g i).pt W2)
@@ -115,7 +117,7 @@ theorem evm_decider_sound
     (RD : R1CS (ZMod p1) mD (2 * sN + 26) nwD)
     (hsatD : ∀ x w, RD.Sat x w → circD.rel x (circD.decode w))
     (hrelD : ∀ (p : DecPub p1 sN) ω, circD.rel (vecOfList p.toList (2 * sN + 26)) ω →
-      DecRel W2 T.k1.r1cs T.k2.r1cs EM sp dS dT pm1 G2 PEc PWc pph ω p)
+      DecRel W2 T.k1.r1cs T.k2.r1cs sp dS dT pm1 G2 PEc PWc pph ω p)
     -- the CP-SNARK and its knowledge soundness (the one cryptographic assumption on it)
     (e : W1.toAffine.Point →ₗ[ZMod p1] G₂ →ₗ[ZMod p1] G_T)
     (vk : LegoGroth16.VK W1.toAffine.Point G₂ (2 * sN + 26) 2)
@@ -130,7 +132,7 @@ theorem evm_decider_sound
     (h2b : (2 : ZMod p1) ≠ 0) (hnr2 : ∀ e : ZMod p1, e ^ 3 + W2.a₄ * e + W2.a₆ ≠ 0) {r2 : ℕ}
     (hord2 : ∀ P : W2.toAffine.Point, P ≠ 0 → addOrderOf P = r2) (hrn2 : 2 ^ 252 < r2)
     (hG2 : W2.toAffine.Equation G2.1 G2.2)
-    (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8)) (hp2' : 2 ^ 128 ≤ p2)
+    (hp2' : 2 ^ 128 ≤ p2)
     (hp1b : 2 ^ 253 < p1) (hp2b : p2 ≤ 2 ^ 254)
     (hpm : natVal 254 pm1 = p1 - 1)
     -- cryptographic assumptions
@@ -142,7 +144,7 @@ theorem evm_decider_sound
     (fun k => (cd.zi k : ZMod p1)) = T.step^[cd.i] (fun k => (cd.z0 k : ZMod p1)) := by
   have hrn2' : 2 ^ 128 < r2 :=
     lt_of_le_of_lt (Nat.pow_le_pow_right (by norm_num) (by norm_num)) hrn2
-  have hA := augSound_of_circuit W1 W2 EA sp dS dT pm1 G2 StepRel T hco hhs hch hcfx hstep hsmul2
+  have hA := augSound_of_circuit W1 W2 (EmuArith.concrete hp hp2 hbits) sp dS dT pm1 G2 StepRel T hco hhs hch hcfx hstep hsmul2
     circA hsatA hrelA h2b hnr2 hord2 hrn2' hp hp2 hp2' hG2 hpm
   have hC := cfSound_of_circuit W1 T hco hcfx hsmul1 hG1 circC hcompC hrelC hb1 h2a hnr1 hord1
     hrn1 hp2'
@@ -155,8 +157,8 @@ theorem evm_decider_sound
   have hrel := hrelD (pubOfCd cd pts) (circD.decode w) (hsatD _ w hsat)
   set d := circD.decode w with hd
   obtain ⟨hnz, hxi, hxz, hxzi, hpt, hux, hrho, hchv, hR1, hR2, hOE, hOW, hpp⟩ :=
-    dec_sound W2 T.k1.r1cs T.k2.r1cs EM sp dS dT pm1 G2 PEc PWc pph hsmul2 h2b hnr2 hord2 hrn2
-      hp hp2 hpm hgE hhE hgW hhW hrel
+    dec_sound W2 T.k1.r1cs T.k2.r1cs sp dS dT pm1 G2 PEc PWc pph hsmul2 h2b hnr2 hord2 hrn2
+      hp hp2 hbits hpm hgE hhE hgW hhW hrel
   obtain ⟨PUE, Pπ, hPUE, hPπ, hce'⟩ := foldC_spec W1 hb1 hce
   obtain ⟨PUW, Pu, hPUW, hPu, hcw'⟩ := foldC_spec W1 hb1 hcw
   have d0 := hdec 0
