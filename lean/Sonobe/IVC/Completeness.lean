@@ -46,7 +46,7 @@ satisfying assignment, whose public input is `augOut`. -/
 def Setup.AugComplete : Prop :=
   ∀ (i : ℕ) (z0 zi : S) (U : RunningInstance F1 G1 1) (u : IncomingInstance G1 F1 1) (π : G1)
     (cfU : RunningInstance F2 G2 l2) (cu0 cu1 : IncomingInstance G2 F2 l2) (cπ0 cπ1 : G2),
-    (i = 0 → z0 = zi) →
+    (((i : ℕ) : F1) = 0 → i = 0) → (i = 0 → z0 = zi) →
     u.x = (fun _ => T.hs T.pph (i : F1) z0 zi (T.rawOf U) cfU) →
     cu0.x = T.cfX (T.ch1n T.pph (T.rawOf U) (T.rawOfI u) (T.coords π)) (T.coords U.cmE)
       (T.coords π) (T.coords (T.fold1 U u π).cmE) →
@@ -76,16 +76,18 @@ theorem prove_base (hA : T.AugComplete) (hC : T.CFComplete) (z0 : S) :
     (T.fold1 U u 0).cmE (T.ch1n_small _ _ _ _) rfl
   obtain ⟨cw1, cu1, -, hx1⟩ := hC (T.ch1n T.pph (T.rawOf U) (T.rawOfI u) (T.coords 0)) U.cmW
     u.cmW (T.fold1 U u 0).cmW (T.ch1n_small _ _ _ _) rfl
-  obtain ⟨w', u', hu', hxu'⟩ := hA 0 z0 z0 U u 0 cfU cu0 cu1 0 0 (fun _ => rfl) rfl hx0 hx1
+  obtain ⟨w', u', hu', hxu'⟩ := hA 0 z0 z0 U u 0 cfU cu0 cu1 0 0 (fun _ => rfl) (fun _ => rfl) rfl hx0 hx1
   refine ⟨⟨dummyRW F1 T.m1 T.nw1, U, w', u', dummyRW F2 T.m2 T.nw2, cfU⟩, ?_, running_dummy _,
     hu', running_dummy _⟩
   simp [hxu', Setup.augOut]
   rfl
 
 /-- One honest prover step from a satisfying `(U, W, u, w, cf_U, cf_W)` (`n ≥ 1`). -/
-theorem prove_succ (hA : T.AugComplete) (hC : T.CFComplete) (n : ℕ) (hn : n ≠ 0) (z0 zn : S)
+theorem prove_succ (hA : T.AugComplete) (hC : T.CFComplete) (n : ℕ) (hnc : ((n : ℕ) : F1) ≠ 0)
+    (z0 zn : S)
     (P : Proof T) (hP : T.Good n z0 zn P) :
     ∃ P' : Proof T, T.Good (n + 1) z0 (T.step zn) P' := by
+  have hn : n ≠ 0 := fun h => hnc (by rw [h]; simp)
   obtain ⟨hxu, hU, hu, hcf⟩ := hP
   set U := P.U; set W := P.W; set u := P.u; set w := P.w; set cfU := P.cfU; set cfW := P.cfW
   -- primary fold
@@ -105,28 +107,30 @@ theorem prove_succ (hA : T.AugComplete) (hC : T.CFComplete) (n : ℕ) (hn : n �
   set ρ1 : F2 := ((T.ch2bn T.pph (T.rawOf U) (T.rawOfI u) (T.coords π) cfU cu0 cπ0 cu1 cπ1 : ℕ) : F2)
     with hρ1
   have hf1 := fold_complete T.k2 hf0 hcu1 ρ1 0
-  obtain ⟨w', u', hu', hxu'⟩ := hA n z0 zn U u π cfU cu0 cu1 cπ0 cπ1 (fun h => absurd h hn) hxu hx0 hx1
+  obtain ⟨w', u', hu', hxu'⟩ := hA n z0 zn U u π cfU cu0 cu1 cπ0 cπ1 (fun h => absurd h hnc) (fun h => absurd h hn) hxu hx0 hx1
   refine ⟨⟨_, T.fold1 U u π, w', u', _, T.cfFold2 U u π cfU cu0 cπ0 cu1 cπ1⟩, ?_, hUU, hu', hf1⟩
   simp [hn, hxu', Setup.augOut]
 
-/-- **IVC completeness**: for every `n` there is an accepting proof of `zₙ = Fⁿ(z₀)`. -/
-theorem ivc_complete (hA : T.AugComplete) (hC : T.CFComplete) (z0 : S) :
-    ∀ n, ∃ P : Proof T, T.Verify n z0 (T.step^[n] z0) P := by
-  have good : ∀ n, ∃ P : Proof T, T.Good (n + 1) z0 (T.step^[n + 1] z0) P := by
+/-- **IVC completeness**: for every `n ≤ N` (step counts that are non-zero in the field) there is an
+accepting proof of `zₙ = Fⁿ(z₀)`. -/
+theorem ivc_complete (hA : T.AugComplete) (hC : T.CFComplete) {N : ℕ} (hcast : CastOK F1 N)
+    (z0 : S) : ∀ n ≤ N, ∃ P : Proof T, T.Verify n z0 (T.step^[n] z0) P := by
+  have good : ∀ n, n + 1 ≤ N → ∃ P : Proof T, T.Good (n + 1) z0 (T.step^[n + 1] z0) P := by
     intro n
     induction n with
-    | zero => exact prove_base T hA hC z0
+    | zero => intro _; exact prove_base T hA hC z0
     | succ n ih =>
-      obtain ⟨P, hP⟩ := ih
+      intro hn
+      obtain ⟨P, hP⟩ := ih (by omega)
       rw [Function.iterate_succ_apply' T.step (n + 1)]
-      exact prove_succ T hA hC (n + 1) (by omega) z0 _ P hP
-  intro n
+      exact prove_succ T hA hC (n + 1) (fun h => by have := hcast (n + 1) (by omega) h; omega) z0 _ P hP
+  intro n hn
   cases n with
   | zero =>
-    obtain ⟨P, -⟩ := good 0
+    obtain ⟨P, -⟩ := prove_base T hA hC z0
     exact ⟨P, by simp [Setup.Verify]⟩
   | succ n =>
-    obtain ⟨P, hP⟩ := good n
+    obtain ⟨P, hP⟩ := good n hn
     exact ⟨P, by simpa [Setup.Verify] using hP⟩
 
 end IVC
