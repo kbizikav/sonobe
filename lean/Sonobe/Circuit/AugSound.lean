@@ -1,16 +1,16 @@
 import Sonobe.Circuit.Augmented
 import Sonobe.Circuit.CFBridge
-import Sonobe.IVC2.Soundness
+import Sonobe.IVC.Soundness
 
 /-!
 Soundness of the augmented circuit, piece by piece: from `AugRel` to the data of
-`Setup2.AugSound`.
+`Setup.AugSound`.
 -/
 
 namespace Sonobe
 namespace Gadget
 
-open Finset WeierstrassCurve WeierstrassCurve.Affine Sonobe.IVC2 Sonobe.Nova
+open Finset WeierstrassCurve WeierstrassCurve.Affine Sonobe.IVC Sonobe.Nova
 open scoped Classical
 
 noncomputable local instance decEqZModAS {p : ℕ} : DecidableEq (ZMod p) :=
@@ -248,7 +248,7 @@ end Sonobe
 namespace Sonobe
 namespace Gadget
 
-open Finset WeierstrassCurve WeierstrassCurve.Affine Sonobe.IVC2 Sonobe.Nova Sonobe.IVC
+open Finset WeierstrassCurve WeierstrassCurve.Affine Sonobe.IVC Sonobe.Nova
 open scoped Classical
 
 noncomputable local instance decEqZModAS2 {p : ℕ} : DecidableEq (ZMod p) :=
@@ -344,7 +344,7 @@ theorem aug_uux_zero {v : AugVars p1 sN} {uux : ZMod p1}
 
 /-- **`AugSound`, derived from the augmented circuit.** -/
 theorem augSound_of_circuit
-    (T : Setup2 (ZMod p1) W1.toAffine.Point (ZMod p2) W2.toAffine.Point (Fin sN → ZMod p1)
+    (T : Setup (ZMod p1) W1.toAffine.Point (ZMod p2) W2.toAffine.Point (Fin sN → ZMod p1)
       (ZMod p2 × ZMod p2) 7)
     (hco : T.coords = coordsOf W1) (hhs : T.hs = hsC W2 sp dS) (hch : T.ch1n = ch1nC sp dT)
     (hcfx : ∀ n c0 c1 c2, T.cfX n c0 c1 c2 = cfVec n c0 c1 c2)
@@ -400,14 +400,14 @@ theorem augSound_of_circuit
         intro h0; have := (Fact.out : p2.Prime).pos; omega)) hi h
       rw [e, hnx]
       have : T.rawOf (dummyRU (ZMod p1) W1.toAffine.Point 1) = ⟨(0, 0), 0, (0, 0), fun _ => 0⟩ := by
-        simp [Setup2.rawOf, hco, dummyRU, coordsOf]
+        simp [Setup.rawOf, hco, dummyRU, coordsOf]
       rw [this]
     · simp only [if_neg hi]
       have e := aug_uux_pos W2 EA sp dS dT pm1 G StepRel hsmul2 h2 hnr hord hrn hp hp2 hp2' hG hpm hi h
       have hfold := (aug_fs2 W2 EA sp dS dT pm1 G StepRel hsmul2 h2 hnr hord hrn hp hp2 hp2' hG hpm h).2.2.2.2
       obtain ⟨-, -, hrho⟩ := aug_rho W2 EA sp dS dT pm1 G StepRel hp hp2 hpm h
       rw [e, hnx, ← hfold]
-      simp only [Setup2.ch1, hch, hrho]
+      simp only [Setup.ch1, hch, hrho]
       have hx : ∀ ρ : ZMod p1, (Uraw (p2 := p2) v).x + ρ • (uinRaw (p2 := p2) v).x =
           fun _ => v.Ux + ρ * v.uxIn := by
         intro ρ; funext j; simp [Uraw, uinRaw]

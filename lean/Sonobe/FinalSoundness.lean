@@ -4,7 +4,7 @@ import Sonobe.Circuit.CFBridge
 /-!
 **IVC soundness with the circuit assumptions derived.**
 
-`IVC2.ivc_sound` assumed `AugSound` and `CFSound`, statements about satisfying assignments of the
+`IVC.ivc_sound` assumed `AugSound` and `CFSound`, statements about satisfying assignments of the
 augmented and the CycleFold circuit. Here both are *derived* from constraint-level models of the
 Rust gadgets:
 
@@ -19,7 +19,7 @@ What remains assumed is listed in the hypotheses of the theorem.
 namespace Sonobe
 namespace Gadget
 
-open Sonobe.IVC2 Sonobe.Nova
+open Sonobe.IVC Sonobe.Nova
 open scoped Classical
 
 noncomputable local instance decEqZModFin {p : ℕ} : DecidableEq (ZMod p) :=
@@ -34,7 +34,7 @@ variable (W1 : WeierstrassCurve (ZMod p2)) [Short W1] [W1.IsElliptic]
   [Module (ZMod p1) W1.toAffine.Point] [Module (ZMod p2) W2.toAffine.Point]
 
 theorem ivc_sound_of_circuits
-    (T : Setup2 (ZMod p1) W1.toAffine.Point (ZMod p2) W2.toAffine.Point (Fin sN → ZMod p1)
+    (T : Setup (ZMod p1) W1.toAffine.Point (ZMod p2) W2.toAffine.Point (Fin sN → ZMod p1)
       (ZMod p2 × ZMod p2) 7)
     -- identification of the abstract model with the concrete hash, challenge and wiring
     (hco : T.coords = coordsOf W1) (hhs : T.hs = hsC W2 sp dS) (hch : T.ch1n = ch1nC sp dT)
@@ -62,7 +62,7 @@ theorem ivc_sound_of_circuits
     (hH : T.HsInj) (hE1 : ¬ T.k1.ckE.DLRel) (hW1 : ¬ T.k1.ckW.DLRel)
     (hE2 : ¬ T.k2.ckE.DLRel) (hW2 : ¬ T.k2.ckW.DLRel) (f1 : T.Fork1) (f2 : T.Fork2)
     {N : ℕ} (hcast : CastOK (ZMod p1) N) (z0 : Fin sN → ZMod p1) :
-    ∀ n, n + 1 ≤ N → ∀ (zn : Fin sN → ZMod p1) (P : Proof2 T), T.Good (n + 1) z0 zn P →
+    ∀ n, n + 1 ≤ N → ∀ (zn : Fin sN → ZMod p1) (P : Proof T), T.Good (n + 1) z0 zn P →
       zn = T.step^[n + 1] z0 :=
   ivc_sound T
     (augSound_of_circuit W1 W2 EA sp dS dT pm1 G2 StepRel T hco hhs hch hcfx hstep hsmul2 circA

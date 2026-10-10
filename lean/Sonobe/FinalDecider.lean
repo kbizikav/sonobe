@@ -1,12 +1,12 @@
 import Sonobe.FinalSoundness
 import Sonobe.Circuit.Decider.Primary
 import Sonobe.EVM.Decider
-import Sonobe.IVC2.Decider
+import Sonobe.IVC.Decider
 
 /-!
 **Soundness of the EVM decider verifier, from the circuit models.**
 
-`IVC2.decider_sound` assumed `cpSound`, which bundled (a) the knowledge soundness of the CP-SNARK
+`IVC.decider_sound` assumed `cpSound`, which bundled (a) the knowledge soundness of the CP-SNARK
 and (b) that the decider circuit and verifier enforce `DeciderRel`. Here (b) is derived: the decider
 circuit is modelled constraint by constraint (`Circuit/Decider`), the contract at the level of
 words (`EVM/Decider`), and the only assumption left on the CP-SNARK is
@@ -16,7 +16,7 @@ words (`EVM/Decider`), and the only assumption left on the CP-SNARK is
 namespace Sonobe
 namespace Gadget
 
-open Finset Sonobe.IVC2 Sonobe.Nova Sonobe.EVM
+open Finset Sonobe.IVC Sonobe.Nova Sonobe.EVM
 open scoped Classical
 
 noncomputable local instance decEqZModFD {p : ℕ} : DecidableEq (ZMod p) :=
@@ -88,7 +88,7 @@ variable (W1 : WeierstrassCurve (ZMod p2)) [Short W1] [W1.IsElliptic]
 theorem evm_decider_sound
     {PWd G₂ G_T : Type*} [AddCommGroup G₂] [Module (ZMod p1) G₂] [AddCommGroup G_T]
     [Module (ZMod p1) G_T]
-    (T : Setup2 (ZMod p1) W1.toAffine.Point (ZMod p2) W2.toAffine.Point (Fin sN → ZMod p1)
+    (T : Setup (ZMod p1) W1.toAffine.Point (ZMod p2) W2.toAffine.Point (Fin sN → ZMod p1)
       (ZMod p2 × ZMod p2) 7)
     -- identification of the abstract model with the concrete hash, challenge and wiring
     (hco : T.coords = coordsOf W1) (hhs : T.hs = hsC W2 sp dS) (hch : T.ch1n = ch1nC sp dT)
@@ -205,13 +205,13 @@ theorem evm_decider_sound
     with hU
   set u : IncomingInstance W1.toAffine.Point (ZMod p1) 1 := ⟨Pu, fun _ => d.v.uxIn⟩ with hu
   have hrawU : T.rawOf U = Uraw d.v := by
-    simp [Setup2.rawOf, hU, hco, cE, cW, Uraw, e0, e1, e2, e3]
+    simp [Setup.rawOf, hU, hco, cE, cW, Uraw, e0, e1, e2, e3]
   have hrawI : T.rawOfI u = uinRaw d.v := by
-    simp [Setup2.rawOfI, hu, hco, cI, uinRaw, e6, e7]
+    simp [Setup.rawOfI, hu, hco, cI, uinRaw, e6, e7]
   have hcoP : T.coords Pπ = piRaw d.v := by simp [hco, cT, piRaw, e4, e5]
   have hpp' : d.v.pp = T.pph := hpp.trans hpph.symm
   have hρ : T.ch1 T.pph (T.rawOf U) (T.rawOfI u) (T.coords Pπ) = rhoOf d.v.cb := by
-    rw [hrawU, hrawI, hcoP, Setup2.ch1, hch, ← hpp']; exact hrho.symm
+    rw [hrawU, hrawI, hcoP, Setup.ch1, hch, ← hpp']; exact hrho.symm
   -- the challenge of the verifier
   have hchlt : cd.challenge < p1 := hlt _ (by simp [xList])
   have hchval : (pubOfCd cd pts : DecPub p1 sN).ch.val = cd.challenge :=
@@ -230,7 +230,7 @@ theorem evm_decider_sound
     intro P; rw [hρcast]; exact hsmul1 _ P
   set WW : RunningWitness (ZMod p1) T.m1 T.nw1 := ⟨d.we, o 0, d.ww, o 1⟩ with hWW
   have hfold : T.fold1 U u Pπ = foldInstance (rhoOf d.v.cb) Pπ U u := by
-    unfold Setup2.fold1; rw [hρ]
+    unfold Setup.fold1; rw [hρ]
   have hrun : T.k1.Running (T.fold1 U u Pπ) WW := by
     rw [hfold]
     refine ⟨?_, ?_, ?_⟩

@@ -1,7 +1,7 @@
 import Sonobe.Circuit.MulAdd
 import Sonobe.Circuit.Coords
 import Sonobe.Circuit.Emulated.Canon
-import Sonobe.IVC2.Model
+import Sonobe.IVC.Model
 
 /-!
 The secondary folding-scheme verifier gadget (`FS2::Gadget::verify`, fs/src/nova/circuits/verifier.rs

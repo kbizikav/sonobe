@@ -14,7 +14,7 @@ transcript is not needed for soundness), so only the direction `R1CS satisfied â
 namespace Sonobe
 namespace Gadget
 
-open Finset WeierstrassCurve WeierstrassCurve.Affine Sonobe.IVC2 Sonobe.Nova
+open Finset WeierstrassCurve WeierstrassCurve.Affine Sonobe.IVC Sonobe.Nova
 open scoped Classical
 
 noncomputable local instance decEqZModA {p : â„•} : DecidableEq (ZMod p) :=

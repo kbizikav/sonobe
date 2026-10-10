@@ -27,8 +27,7 @@ is gone; the only assumption on the CP-SNARK is `LegoGroth16.CPKnowledgeSound`.
 | `Nova/Transcript` | `Absorbable` impls | the Fiat–Shamir input determines `U`, `u`, `cm_t` |
 | `Transcript/{Griffin,Sponge}` | `griffin/*` | gadget constraints pin the output to `permute`; duplex sponge; circuit sponge = spec sponge |
 | `Snark/{LinearSubspace,LegoGroth16}` | `linear_subspace`, `cp/legogroth16` | completeness of the Groth16 check and the link |
-| `IVC2/{Model,Soundness,Decider}` | `cyclefold/{mod,circuits}.rs` | **`ivc_sound`**, `decider_sound` — coordinate-level model |
-| `IVC/*`, `Decider` | | earlier abstract model (`ivc_complete`); superseded for soundness by `IVC2` |
+| `IVC/{Model,Soundness,Completeness,Decider}` | `cyclefold/{mod,circuits}.rs` | **`ivc_sound`**, **`ivc_complete`** (given `AugComplete`, `CFComplete`), `decider_rel_{sound,complete}` — coordinate-level model |
 
 ### Circuit level (`Circuit/*`) — constraint-by-constraint models, file:line of the Rust in the comments
 | Module | Gadget | Result |
@@ -67,7 +66,7 @@ them with the circuit's own challenge. `LegoGroth16::verify` also rejects wrongl
 ## Findings that shaped the model
 * The augmented circuit allocates primary commitments as `EmulatedAffineVar` (range-checked, **no curve
   check**) and `cm_e'`, `cm_w'` of the folded instance are *free* witnesses bound only through the
-  CycleFold public inputs. Hence the coordinate-level model `IVC2`; `CFSound` lifts raw coordinates to
+  CycleFold public inputs. Hence the coordinate-level model `IVC`; `CFSound` lifts raw coordinates to
   genuine group elements.
 * `pp_hash` is a free witness of the augmented circuit; the verifier's hash binds it (`HsInj`).
 * Vectors are absorbed without a length prefix; the shape is fixed by `pp_hash`.

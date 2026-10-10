@@ -1,8 +1,8 @@
 import Sonobe.Circuit.Coords
-import Sonobe.IVC2.Soundness
+import Sonobe.IVC.Soundness
 
 /-!
-Bridge: the CycleFold circuit constraints (`CFRel`) imply `Setup2.CFSound`.
+Bridge: the CycleFold circuit constraints (`CFRel`) imply `Setup.CFSound`.
 
 Trusted: `Circuit.Compiles` (the R1CS of the secondary decider key is the circuit's constraint
 system), and the identification of the abstract `coords`/`cfX` with affine coordinates and the public
@@ -12,7 +12,7 @@ input order `[ρ, P₀.x, P₀.y, P₁.x, P₁.y, R.x, R.y]` (adapters/nova.rs:9
 namespace Sonobe
 namespace Gadget
 
-open WeierstrassCurve WeierstrassCurve.Affine Sonobe.IVC2 Sonobe.Nova
+open WeierstrassCurve WeierstrassCurve.Affine Sonobe.IVC Sonobe.Nova
 open scoped Classical
 
 noncomputable local instance decEqZModB {p : ℕ} : DecidableEq (ZMod p) :=
@@ -28,7 +28,7 @@ variable {p1 p2 : ℕ} [Fact p1.Prime] [Fact p2.Prime]
   [Module (ZMod p1) W.toAffine.Point]
 
 theorem cfSound_of_circuit
-    (T : Setup2 (ZMod p1) W.toAffine.Point (ZMod p2) G2 S (ZMod p2 × ZMod p2) 7)
+    (T : Setup (ZMod p1) W.toAffine.Point (ZMod p2) G2 S (ZMod p2 × ZMod p2) 7)
     (hco : T.coords = coordsOf W)
     (hcfx : ∀ n c0 c1 c2, T.cfX n c0 c1 c2 = cfVec n c0 c1 c2)
     (hsmul : ∀ (n : ℕ) (P : W.toAffine.Point), (n : ZMod p1) • P = n • P)

@@ -1,118 +1,168 @@
-import Sonobe.IVC.Completeness
-import Sonobe.Nova.Soundness
+import Sonobe.IVC.Model
 
 /-!
-IVC soundness (algebraic part): an accepted proof of `n` steps forces `zₙ = Fⁿ(z₀)`.
+IVC soundness at the coordinate level (see `Model.lean`): an accepted `n`-step proof forces
+`zₙ = Fⁿ(z₀)`.
 
-Explicit assumptions (everything the cryptographic model has to supply):
-* `AugSound` / `CFSound`: what a satisfying assignment of the augmented / CycleFold circuit means
-  (to be discharged by the constraint-level development of the gadgets);
-* `HsInj`: collision resistance of the state hash on its (injectively encoded) inputs;
-* `¬ DLRel` for the four commitment keys (binding);
-* `Fork1`/`Fork2`: rewinding — an accepting fold can be re-run on three distinct challenges
-  (the forking lemma, not proved here).
+Assumptions, all explicit hypotheses:
+* `AugSound`   — what a satisfying assignment of the augmented circuit means (derived from the
+  gadget models in `Circuit/AugSound.lean`); `CFSound` — same for the CycleFold circuit
+  (`Circuit/CFBridge.lean`);
+* `HsInj`      — collision resistance of the state hash (including the public-parameter hash);
+* `¬ DLRel`    — binding of the four commitment keys;
+* `Fork1/2`    — rewinding (forking lemma);
+* `CastOK`     — step counts are not multiples of the characteristic.
 -/
 
 namespace Sonobe
 namespace IVC
 
 open Nova
+open scoped Classical
 
-variable {F1 G1 F2 G2 S : Type*} [Field F1] [AddCommGroup G1] [Module F1 G1]
-  [Field F2] [AddCommGroup G2] [Module F2 G2] (T : Setup F1 G1 F2 G2 S)
+variable {F1 G1 F2 G2 S C1 : Type*} [Field F1] [AddCommGroup G1] [Module F1 G1]
+  [Field F2] [AddCommGroup G2] [Module F2 G2] {l2 : ℕ} (T : Setup F1 G1 F2 G2 S C1 l2)
 
-/-- CycleFold circuit soundness: its public inputs encode a correct `P₂ = P₀ + ρ P₁`. -/
-def Setup.CFSound : Prop :=
-  ∀ (cw : IncomingWitness F2 T.nw2) (cu : IncomingInstance G2 F2 T.l2), T.k2.Incoming cu cw →
-    ∀ (ρ : F1) (P0 P1 P2 : G1), cu.x = T.cfX ρ P0 P1 P2 → P2 = P0 + ρ • P1
+/-- IVC proof `(W, U, w, u, cf_W, cf_U)`. -/
+structure Proof where
+  W : RunningWitness F1 T.m1 T.nw1
+  U : RunningInstance F1 G1 1
+  w : IncomingWitness F1 T.nw1
+  u : IncomingInstance G1 F1 1
+  cfW : RunningWitness F2 T.m2 T.nw2
+  cfU : RunningInstance F2 G2 l2
 
-/-- Augmented circuit soundness (circuits.rs:93-195): a satisfying assignment exposes the data of
-one step. The new commitments `pe, pw` of `UU` are *free* witnesses of the circuit; they are tied
-to the fold only through the CycleFold public inputs `cu0.x`, `cu1.x`. -/
+/-- What the verifier checks for `n ≥ 1` steps (mod.rs:460-474). -/
+def Setup.Good (n : ℕ) (z0 zn : S) (P : Proof T) : Prop :=
+  P.u.x = (fun _ => T.hs T.pph (n : F1) z0 zn (T.rawOf P.U) P.cfU) ∧
+    T.k1.Running P.U P.W ∧ T.k1.Incoming P.u P.w ∧ T.k2.Running P.cfU P.cfW
+
 def Setup.AugSound : Prop :=
   ∀ (w' : IncomingWitness F1 T.nw1) (u' : IncomingInstance G1 F1 1), T.k1.Incoming u' w' →
-    ∃ (i : ℕ) (z0 zi : S) (U : RunningInstance F1 G1 1) (u : IncomingInstance G1 F1 1) (π : G1)
-      (cfU : RunningInstance F2 G2 T.l2) (cu0 cu1 : IncomingInstance G2 F2 T.l2) (cπ0 cπ1 : G2)
-      (pe pw : G1),
-      (i = 0 → z0 = zi) ∧ u.x = (fun _ => T.hs i z0 zi U cfU) ∧
-      cu0.x = T.cfX (T.ch1 U u π) U.cmE π pe ∧ cu1.x = T.cfX (T.ch1 U u π) U.cmW u.cmW pw ∧
-      u'.x = (fun _ => T.hs (i + 1) z0 (T.step zi)
-        (if i = 0 then dummyRU F1 G1 1 else
-          ⟨pe, U.u + T.ch1 U u π, pw, U.x + T.ch1 U u π • u.x⟩)
-        (if i = 0 then dummyRU F2 G2 T.l2 else T.fold2 (T.fold2 cfU cu0 cπ0) cu1 cπ1))
+    ∃ (pp i : F1) (z0 zi : S) (U : RawRU F1 C1) (uin : RawIU F1 C1) (π : C1)
+      (cfU : RunningInstance F2 G2 l2) (cu0 cu1 : IncomingInstance G2 F2 l2)
+      (cπ0 cπ1 : G2) (cρ0 cρ1 : F2) (pe pw : C1),
+      (i = 0 → z0 = zi) ∧ uin.x = (fun _ => T.hs pp i z0 zi U cfU) ∧
+      cu0.x = T.cfX (T.ch1n pp U uin π) U.cmE π pe ∧
+      cu1.x = T.cfX (T.ch1n pp U uin π) U.cmW uin.cmW pw ∧
+      u'.x = (fun _ => T.hs pp (i + 1) z0 (T.step zi)
+        (if i = 0 then T.rawOf (dummyRU F1 G1 1)
+          else ⟨pe, U.u + T.ch1 pp U uin π, pw, U.x + T.ch1 pp U uin π • uin.x⟩)
+        (if i = 0 then dummyRU F2 G2 l2
+          else foldInstance cρ1 cπ1 (foldInstance cρ0 cπ0 cfU cu0) cu1))
+
+def Setup.CFSound : Prop :=
+  ∀ (cw : IncomingWitness F2 T.nw2) (cu : IncomingInstance G2 F2 l2), T.k2.Incoming cu cw →
+    ∀ (n : ℕ) (c0 c1 c2 : C1), n < 2 ^ 128 → cu.x = T.cfX n c0 c1 c2 →
+      ∃ P0 P1 P2 : G1, T.coords P0 = c0 ∧ T.coords P1 = c1 ∧ T.coords P2 = c2 ∧
+        P2 = P0 + (n : F1) • P1
 
 def Setup.HsInj : Prop :=
-  ∀ i i' z0 z0' zi zi' U U' cfU cfU', T.hs i z0 zi U cfU = T.hs i' z0' zi' U' cfU' →
-    i = i' ∧ z0 = z0' ∧ zi = zi' ∧ U = U' ∧ cfU = cfU'
+  ∀ pp pp' i i' z0 z0' zi zi' U U' cfU cfU', T.hs pp i z0 zi U cfU = T.hs pp' i' z0' zi' U' cfU' →
+    pp = pp' ∧ i = i' ∧ z0 = z0' ∧ zi = zi' ∧ U = U' ∧ cfU = cfU'
 
 def Setup.Fork1 : Prop :=
-  ∀ (U : RunningInstance F1 G1 1) (u : IncomingInstance G1 F1 1) (π : G1)
-    (W : RunningWitness F1 T.m1 T.nw1), T.k1.Running (T.fold1 U u π) W →
+  ∀ (ρ : F1) (U : RunningInstance F1 G1 1) (u : IncomingInstance G1 F1 1) (π : G1)
+    (W : RunningWitness F1 T.m1 T.nw1), T.k1.Running (foldInstance ρ π U u) W →
     ∃ (ρ₁ ρ₂ ρ₃ : F1) (W₁ W₂ W₃ : RunningWitness F1 T.m1 T.nw1),
       ρ₁ ≠ ρ₂ ∧ ρ₁ ≠ ρ₃ ∧ ρ₂ ≠ ρ₃ ∧ T.k1.Running (foldInstance ρ₁ π U u) W₁ ∧
       T.k1.Running (foldInstance ρ₂ π U u) W₂ ∧ T.k1.Running (foldInstance ρ₃ π U u) W₃
 
 def Setup.Fork2 : Prop :=
-  ∀ (U : RunningInstance F2 G2 T.l2) (u : IncomingInstance G2 F2 T.l2) (π : G2)
-    (W : RunningWitness F2 T.m2 T.nw2), T.k2.Running (T.fold2 U u π) W →
+  ∀ (ρ : F2) (U : RunningInstance F2 G2 l2) (u : IncomingInstance G2 F2 l2) (π : G2)
+    (W : RunningWitness F2 T.m2 T.nw2), T.k2.Running (foldInstance ρ π U u) W →
     ∃ (ρ₁ ρ₂ ρ₃ : F2) (W₁ W₂ W₃ : RunningWitness F2 T.m2 T.nw2),
       ρ₁ ≠ ρ₂ ∧ ρ₁ ≠ ρ₃ ∧ ρ₂ ≠ ρ₃ ∧ T.k2.Running (foldInstance ρ₁ π U u) W₁ ∧
       T.k2.Running (foldInstance ρ₂ π U u) W₂ ∧ T.k2.Running (foldInstance ρ₃ π U u) W₃
 
-/-- One backward step: an accepting `Good (n+1)` proof exposes the previous step's data;
-if `n ≠ 0` the previous `(U, u, cf_U)` are again satisfiable, so the induction can continue. -/
+/-- Step counts up to `N` are non-zero in the field. -/
+def CastOK (F1 : Type*) [Field F1] (N : ℕ) : Prop := ∀ n ≤ N, (n : F1) = 0 → n = 0
+
+/-- One backward step of the extraction. -/
 theorem sound_step (hA : T.AugSound) (hC : T.CFSound) (hH : T.HsInj)
     (hE1 : ¬ T.k1.ckE.DLRel) (hW1 : ¬ T.k1.ckW.DLRel)
-    (hE2 : ¬ T.k2.ckE.DLRel) (hW2 : ¬ T.k2.ckW.DLRel)
-    (f1 : T.Fork1) (f2 : T.Fork2) (n : ℕ) (z0 zn : S) (P : Proof T)
+    (hE2 : ¬ T.k2.ckE.DLRel) (hW2 : ¬ T.k2.ckW.DLRel) (f1 : T.Fork1) (f2 : T.Fork2)
+    {N : ℕ} (hcast : CastOK F1 N) (n : ℕ) (hn : n + 1 ≤ N) (z0 zn : S) (P : Proof T)
     (hP : T.Good (n + 1) z0 zn P) :
     (n = 0 → zn = T.step z0) ∧
     (n ≠ 0 → ∃ zi P', zn = T.step zi ∧ T.Good n z0 zi P') := by
   obtain ⟨hx, hU, hu, hcf⟩ := hP
-  obtain ⟨i, z0', zi, U, u, π, cfU, cu0, cu1, cπ0, cπ1, pe, pw, h0, hux, hx0, hx1, hux'⟩ :=
-    hA _ _ hu
+  obtain ⟨pp, i, z0', zi, U, uin, π, cfU, cu0, cu1, cπ0, cπ1, cρ0, cρ1, pe, pw, h0, hux, hx0,
+    hx1, hux'⟩ := hA _ _ hu
   have hh := congrFun (hx.symm.trans hux') 0
-  obtain ⟨hi, hz0, hzn, hUeq, hcfeq⟩ := hH _ _ _ _ _ _ _ _ _ _ hh
-  have hin : i = n := by omega
-  subst hin hz0 hzn
-  refine ⟨fun hi0 => by rw [h0 hi0], fun hn => ?_⟩
-  simp only [if_neg hn] at hUeq hcfeq
-  -- extract the CycleFold side
-  rw [hcfeq] at hcf
-  obtain ⟨_, _, _, W₁, W₂, W₃, h12, h13, h23, g1, g2, g3⟩ :=
-    f2 _ cu1 cπ1 P.cfW hcf
-  obtain ⟨X, inc1, hX, hinc1⟩ :=
-    fold_sound T.k2 hE2 hW2 (T.fold2 cfU cu0 cπ0) cu1 cπ1 h12 h13 h23 g1 g2 g3
-  obtain ⟨_, _, _, V₁, V₂, V₃, k12, k13, k23, l1, l2, l3⟩ := f2 _ cu0 cπ0 X hX
-  obtain ⟨cfW', inc0, hcfW', hinc0⟩ :=
-    fold_sound T.k2 hE2 hW2 cfU cu0 cπ0 k12 k13 k23 l1 l2 l3
-  -- the commitments of `UU` are the genuine fold
-  have hpe := hC inc0 cu0 hinc0 _ _ _ _ hx0
-  have hpw := hC inc1 cu1 hinc1 _ _ _ _ hx1
-  have hUU : P.U = T.fold1 U u π := by
-    rw [hUeq, hpe, hpw]; rfl
-  rw [hUU] at hU
-  -- extract the primary side
-  obtain ⟨_, _, _, V₁, V₂, V₃, m12, m13, m23, o1, o2, o3⟩ := f1 U u π P.W hU
-  obtain ⟨Wx, wx, hWx, hwx⟩ := fold_sound T.k1 hE1 hW1 U u π m12 m13 m23 o1 o2 o3
-  exact ⟨zi, ⟨Wx, U, wx, u, cfW', cfU⟩, rfl, hux, hWx, hwx, hcfW'⟩
+  obtain ⟨hpp, hi, hz0, hzn, hUeq, hcfeq⟩ := hH _ _ _ _ _ _ _ _ _ _ _ _ hh
+  have hi' : i = (n : F1) := by
+    push_cast at hi
+    exact (add_right_cancel hi).symm
+  subst hpp hz0
+  refine ⟨fun hn0 => ?_, fun hn0 => ?_⟩
+  · subst hn0
+    have : i = 0 := by simpa using hi'
+    rw [hzn, ← h0 this]
+  · have hne : i ≠ 0 := by
+      rw [hi']
+      intro h
+      exact hn0 (hcast n (by omega) h)
+    simp only [if_neg hne] at hUeq hcfeq
+    -- the secondary side
+    rw [hcfeq] at hcf
+    obtain ⟨_, _, _, V₁, V₂, V₃, a12, a13, a23, g1, g2, g3⟩ := f2 _ _ _ _ P.cfW hcf
+    obtain ⟨X, inc1, hX, hinc1⟩ :=
+      fold_sound T.k2 hE2 hW2 (foldInstance cρ0 cπ0 cfU cu0) cu1 cπ1 a12 a13 a23 g1 g2 g3
+    obtain ⟨_, _, _, Y₁, Y₂, Y₃, b12, b13, b23, l1, l2, l3⟩ := f2 _ _ _ _ X hX
+    obtain ⟨cfW', inc0, hcfW', hinc0⟩ :=
+      fold_sound T.k2 hE2 hW2 cfU cu0 cπ0 b12 b13 b23 l1 l2 l3
+    -- the CycleFold circuits certify genuine group elements and the fold identities
+    obtain ⟨P0, P1, P2, e0, e1, e2, hP2⟩ :=
+      hC inc0 cu0 hinc0 _ _ _ _ (T.ch1n_small _ _ _ _) hx0
+    obtain ⟨Q0, Q1, Q2, f0, f1', f2', hQ2⟩ :=
+      hC inc1 cu1 hinc1 _ _ _ _ (T.ch1n_small _ _ _ _) hx1
+    obtain ⟨cmE, ur, cmW, xr⟩ := U
+    simp only at e0 f0
+    obtain ⟨ucmW, uinx⟩ := uin
+    simp only at f1' hux hx0 hx1 hux' hUeq
+    set U' : RunningInstance F1 G1 1 := ⟨P0, ur, Q0, xr⟩ with hU'
+    set uin' : IncomingInstance G1 F1 1 := ⟨Q1, uinx⟩ with huin'
+    have hrawU : T.rawOf U' = ⟨cmE, ur, cmW, xr⟩ := by simp [Setup.rawOf, hU', e0, f0]
+    have hrawI : T.rawOfI uin' = ⟨ucmW, uinx⟩ := by simp [Setup.rawOfI, huin', f1']
+    have hUU : P.U = foldInstance ((T.ch1n T.pph ⟨cmE, ur, cmW, xr⟩ ⟨ucmW, uinx⟩ π : ℕ) : F1) P1 U' uin' := by
+      have hc := congrArg RawRU.cmE hUeq
+      have hw := congrArg RawRU.cmW hUeq
+      have hu := congrArg RawRU.u hUeq
+      have hxx := congrArg RawRU.x hUeq
+      simp only [Setup.rawOf, Setup.ch1] at hc hw hu hxx
+      have hP2' : P.U.cmE = P2 := T.coords_inj (hc.trans e2.symm)
+      have hQ2' : P.U.cmW = Q2 := T.coords_inj (hw.trans f2'.symm)
+      obtain ⟨a, b, c, d, hPU⟩ : ∃ a b c d, P.U = ⟨a, b, c, d⟩ := ⟨_, _, _, _, rfl⟩
+      rw [hPU] at hP2' hQ2' hu hxx ⊢
+      simp only at hP2' hQ2' hu hxx
+      simp only [foldInstance, hU', huin']
+      rw [hP2', hQ2', hP2, hQ2, hu, hxx]
+    rw [hUU] at hU
+    obtain ⟨_, _, _, V₁, V₂, V₃, m12, m13, m23, o1, o2, o3⟩ := f1 _ U' uin' P1 P.W hU
+    obtain ⟨Wx, wx, hWx, hwx⟩ := fold_sound T.k1 hE1 hW1 U' uin' P1 m12 m13 m23 o1 o2 o3
+    refine ⟨zi, ⟨Wx, U', wx, uin', cfW', cfU⟩, hzn, ?_, hWx, hwx, hcfW'⟩
+    show uinx = _
+    rw [hux, hi', hrawU]
 
-/-- **IVC soundness**: an accepted `n+1`-step proof certifies `z_{n+1} = F^{n+1}(z₀)`. -/
+/-- **IVC soundness (coordinate level)**: an accepted `n+1`-step proof certifies
+`z_{n+1} = F^{n+1}(z₀)`. -/
 theorem ivc_sound (hA : T.AugSound) (hC : T.CFSound) (hH : T.HsInj)
     (hE1 : ¬ T.k1.ckE.DLRel) (hW1 : ¬ T.k1.ckW.DLRel)
-    (hE2 : ¬ T.k2.ckE.DLRel) (hW2 : ¬ T.k2.ckW.DLRel)
-    (f1 : T.Fork1) (f2 : T.Fork2) (z0 : S) :
-    ∀ n (zn : S) (P : Proof T), T.Good (n + 1) z0 zn P → zn = T.step^[n + 1] z0 := by
+    (hE2 : ¬ T.k2.ckE.DLRel) (hW2 : ¬ T.k2.ckW.DLRel) (f1 : T.Fork1) (f2 : T.Fork2)
+    {N : ℕ} (hcast : CastOK F1 N) (z0 : S) :
+    ∀ n, n + 1 ≤ N → ∀ (zn : S) (P : Proof T), T.Good (n + 1) z0 zn P →
+      zn = T.step^[n + 1] z0 := by
   intro n
   induction n with
   | zero =>
-    intro zn P hP
-    simpa using (sound_step T hA hC hH hE1 hW1 hE2 hW2 f1 f2 0 z0 zn P hP).1 rfl
+    intro hn zn P hP
+    simpa using (sound_step T hA hC hH hE1 hW1 hE2 hW2 f1 f2 hcast 0 hn z0 zn P hP).1 rfl
   | succ n ih =>
-    intro zn P hP
+    intro hn zn P hP
     obtain ⟨zi, P', rfl, hP'⟩ :=
-      (sound_step T hA hC hH hE1 hW1 hE2 hW2 f1 f2 (n + 1) z0 zn P hP).2 (by omega)
-    rw [Function.iterate_succ_apply' T.step (n + 1), ih zi P' hP']
+      (sound_step T hA hC hH hE1 hW1 hE2 hW2 f1 f2 hcast (n + 1) hn z0 zn P hP).2 (by omega)
+    rw [Function.iterate_succ_apply' T.step (n + 1), ih (by omega) zi P' hP']
 
 end IVC
 end Sonobe

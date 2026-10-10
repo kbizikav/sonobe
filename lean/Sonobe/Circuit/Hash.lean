@@ -1,5 +1,5 @@
 import Sonobe.Transcript.Sponge
-import Sonobe.IVC2.Model
+import Sonobe.IVC.Model
 import Sonobe.Circuit.Coords
 
 /-!
@@ -14,7 +14,7 @@ concatenation. Encodings follow the `Absorbable` impls: emulated field elements 
 namespace Sonobe
 namespace Gadget
 
-open Finset WeierstrassCurve WeierstrassCurve.Affine Sonobe.IVC2 Sonobe.Nova
+open Finset WeierstrassCurve WeierstrassCurve.Affine Sonobe.IVC Sonobe.Nova
 open scoped Classical
 
 noncomputable local instance decEqZModH {p : ℕ} : DecidableEq (ZMod p) :=

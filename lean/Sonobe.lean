@@ -6,12 +6,8 @@ import Sonobe.Nova.Soundness
 import Sonobe.Transcript.Griffin
 import Sonobe.Transcript.Sponge
 import Sonobe.Nova.Transcript
-import Sonobe.IVC.Model
-import Sonobe.IVC.Completeness
-import Sonobe.IVC.Soundness
 import Sonobe.Snark.LinearSubspace
 import Sonobe.Snark.LegoGroth16
-import Sonobe.Decider
 import Sonobe.Circuit.Basic
 import Sonobe.Circuit.Bits
 import Sonobe.Circuit.EC.Affine
@@ -24,8 +20,9 @@ import Sonobe.Circuit.CycleFold
 import Sonobe.Circuit.Emulated.Lt
 import Sonobe.Circuit.Emulated.Alloc
 import Sonobe.Circuit.Emulated.Carry
-import Sonobe.IVC2.Model
-import Sonobe.IVC2.Soundness
+import Sonobe.IVC.Model
+import Sonobe.IVC.Soundness
+import Sonobe.IVC.Completeness
 import Sonobe.Circuit.Coords
 import Sonobe.Circuit.CFBridge
 import Sonobe.Circuit.MulAdd
@@ -36,7 +33,7 @@ import Sonobe.Circuit.Hash
 import Sonobe.Circuit.Augmented
 import Sonobe.Circuit.AugSound
 import Sonobe.FinalSoundness
-import Sonobe.IVC2.Decider
+import Sonobe.IVC.Decider
 import Sonobe.Circuit.Decider.PedersenOpen
 import Sonobe.Circuit.Decider.Primary
 import Sonobe.Snark.CPSound
