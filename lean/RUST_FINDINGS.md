@@ -12,6 +12,7 @@ All items are fixed on this branch; `cargo test --release --features evm` passes
 | F3 | Loosely allocated emulated integers can exceed their static bounds | Medium (no exploit shown) | `beea230` |
 | F4 | `LegoGroth16::verify` ignores surplus or missing public inputs | Low–Medium | `5097342` |
 | F5 | Pedersen gadgets: silent truncation in `msm`, implicit ordering of committed variables | Low | `9a4b0d1` |
+| F6 | `enforce_equal_unaligned` does not guarantee the integer equality it is used for | Medium (no exploit shown) | `2a73249` |
 
 ## F1. The decider does not bind the points the contract folds
 
@@ -109,6 +110,31 @@ and opens them in that order; swapping either would silently link a commitment t
 variables (see the `TODO` in `pedersen.rs`).
 
 **Fix.** Both conditions are checked and make setup fail instead of misbehaving silently.
+
+## F6. `enforce_equal_unaligned` carry analysis
+
+`enforce_equal_unaligned` proves `self = other` over the integers by folding the limbs of the
+difference into groups, carrying `(carry + limb) / 2^32` limb by limb and range-checking the carry
+when a group is closed. The static analysis behind it had three gaps:
+
+1. The carry bounds used a rounding (`shr_narrower`) that is only valid for integer-valued carries,
+   but the carry is a field element.
+2. After a group was closed, the next group started from the narrowed carry range `[lb, ub]`,
+   while the range check `carry − lb < 2^bits` admits `[lb, lb + 2^bits − 1]`, up to twice as wide.
+   A carry in the extra part is outside the bounds the next group's no-overflow check assumed.
+3. Nothing checked that the field equation `carry · 2^(32·len) = v` implies the integer one, which
+   needs `|carry · 2^(32·len) − v| < p` for every admitted `v` and carry.
+
+If a sum wraps modulo `p`, a congruence between emulated integers can hold in the field while the
+integers differ, so `modulo`, `enforce_congruent` and `evaluate_r1cs`, which all end in this
+function, would accept a wrong remainder. No concrete exploit was found; whether one exists depends
+on the bound geometry of a particular circuit.
+
+**Fix.** The analysis tracks the bounds of the undivided group value, starts the next group from the
+range the check actually allows, and fails synthesis unless condition 3 holds for every value in the
+bounds and every admitted carry. None of the checks triggers on the circuits of the repository, so
+shapes and keys are unchanged. One unit test used bounds too close to the safe window for the new
+check and was narrowed.
 
 ## Observations
 
