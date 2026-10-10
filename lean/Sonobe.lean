@@ -39,3 +39,5 @@ import Sonobe.Circuit.Decider.Primary
 import Sonobe.Snark.CPSound
 import Sonobe.EVM.Decider
 import Sonobe.FinalDecider
+import Sonobe.Circuit.EC.ScalarMulComplete
+import Sonobe.Circuit.CFComplete
