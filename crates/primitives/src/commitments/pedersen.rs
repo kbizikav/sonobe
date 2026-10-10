@@ -249,6 +249,11 @@ impl<C: SonobeCurve, const H: bool> PedersenGadget<C, H> {
     /// [`PedersenGadget::msm`] performs multi-scalar multiplication in-circuit
     /// with the given generators `g` and scalar bits `v`.
     fn msm(g: &[C::Var], v: &[Vec<Boolean<CF2<C>>>]) -> Result<C::Var, SynthesisError> {
+        // `zip` below would silently drop the surplus scalars, leaving them
+        // unconstrained, so insist on enough generators (as `commit` does).
+        if g.len() < v.len() {
+            return Err(SynthesisError::Unsatisfiable);
+        }
         let mut res = C::Var::zero();
         for (g_i, v_i) in g.iter().zip(v) {
             res += g_i.scalar_mul_le(v_i.to_bits_le()?.iter())?;
@@ -408,6 +413,10 @@ impl<C: SonobeCurve> CommitmentOpsGadget for PedersenCommitAndProveGadget<C, tru
         r: &FpVar<CF1<C>>,
         cm: &EmulatedAffineVar<CF1<C>, C>,
     ) -> Result<(), SynthesisError> {
+        if ck.0.g.len() < v.len() {
+            return Err(SynthesisError::Unsatisfiable);
+        }
+
         cm.mark_as_public()?;
 
         let cs = v.cs().or(r.cs()).or(cm.cs());
@@ -446,12 +455,26 @@ impl<C: SonobeCurve> CommitmentOpsGadget for PedersenCommitAndProveGadget<C, tru
                 }
             })
             .collect::<Result<Vec<_>, _>>()?;
-        cache
+        let committed = cache
             .get_mut(&TypeId::of::<CommittedCache>())
             .ok_or(SynthesisError::AssignmentMissing)?
             .downcast_mut::<UsizeSet>()
-            .ok_or(SynthesisError::AssignmentMissing)?
-            .extend(indices);
+            .ok_or(SynthesisError::AssignmentMissing)?;
+        // The CP-SNARK pairs the commitment keys, in the order of the `open`
+        // calls, with the committed variables in ascending index order (see
+        // `LegoGroth16::generate_keys`). Make this requirement explicit: the
+        // variables of one call must be strictly ascending (hence distinct),
+        // and all lie above the variables of the previous calls. Otherwise
+        // a commitment would be linked to the wrong variables.
+        if !indices.windows(2).all(|w| w[0] < w[1])
+            || indices
+                .first()
+                .zip(committed.iter().max())
+                .is_some_and(|(first, max)| first <= max)
+        {
+            return Err(SynthesisError::Unsatisfiable);
+        }
+        committed.extend(indices);
 
         Ok(())
     }
@@ -495,6 +518,69 @@ mod tests {
                 &mut rng, len,
             )?;
         }
+        Ok(())
+    }
+
+    #[test]
+    fn test_msm_rejects_short_key() -> Result<(), Box<dyn Error>> {
+        use ark_relations::gr1cs::ConstraintSystem;
+
+        let mut rng = thread_rng();
+        let cs = ConstraintSystem::<CF2<G1Projective>>::new_ref();
+        let ck = Pedersen::<G1Projective, false>::generate_key(2, &mut rng)?;
+        assert_eq!(ck.g.len(), 2);
+        let ck_var = AllocVar::new_constant(cs.clone(), ck)?;
+        let v = (0..3)
+            .map(|_| UniformRand::rand(&mut rng))
+            .collect::<Vec<CF1<G1Projective>>>();
+        let v_var = Vec::new_witness(cs.clone(), || Ok(v))?;
+        let cm = AllocVar::new_witness(cs.clone(), || Ok(G1Projective::rand(&mut rng)))?;
+        assert!(
+            PedersenGadget::<G1Projective, false>::open(&ck_var, &v_var, &Null, &cm).is_err(),
+            "a key shorter than the message must be rejected"
+        );
+        Ok(())
+    }
+
+    /// The CP-SNARK pairs the commitment keys (in the order of the `open`
+    /// calls) with the committed variables in ascending index order, so the
+    /// gadget must refuse any other layout.
+    #[test]
+    fn test_commit_and_prove_rejects_misordered_variables() -> Result<(), Box<dyn Error>> {
+        use crate::circuits::ArithExtractor;
+
+        let mut rng = thread_rng();
+        let mut run = |first_is_a: bool| -> Result<(), Box<dyn Error>> {
+            let mut cs = ArithExtractor::<CF1<G1Projective>>::new();
+            {
+                let mut cache = cs.cache_map.borrow_mut();
+                cache.insert(TypeId::of::<CommittedCache>(), Box::new(UsizeSet::default()));
+                cache.insert(
+                    TypeId::of::<CommitmentKeyCache>(),
+                    Box::new(Vec::<PedersenKey<G1Projective, true>>::new()),
+                );
+            }
+            let ck = Pedersen::<G1Projective, true>::generate_key(4, &mut rng)?;
+            cs.execute_fn(|cs| {
+                let ck = PedersenFakeKeyVar(ck);
+                let a = Vec::<FpVar<_>>::new_witness(cs.clone(), || {
+                    Ok(vec![CF1::<G1Projective>::rand(&mut thread_rng()); 2])
+                })?;
+                let b = Vec::<FpVar<_>>::new_witness(cs.clone(), || {
+                    Ok(vec![CF1::<G1Projective>::rand(&mut thread_rng()); 2])
+                })?;
+                let r = FpVar::new_witness(cs.clone(), || Ok(CF1::<G1Projective>::from(1u64)))?;
+                let cm = AllocVar::new_witness(cs.clone(), || Ok(G1Projective::rand(&mut thread_rng())))?;
+                let (x, y) = if first_is_a { (&a, &b) } else { (&b, &a) };
+                for v in [x, y] {
+                    PedersenCommitAndProveGadget::<G1Projective, true>::open(&ck, v, &r, &cm)?;
+                }
+                Ok(())
+            })?;
+            Ok(())
+        };
+        assert!(run(true).is_ok());
+        assert!(run(false).is_err());
         Ok(())
     }
 }
