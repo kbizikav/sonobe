@@ -179,47 +179,5 @@ def DeciderAccepts (e : W1.toAffine.Point →ₗ[ZMod p1] G₂ →ₗ[ZMod p1] G
 
 end Contract
 
-section PreFix
-
-variable {q sN : ℕ} [Fact q.Prime] (W : WeierstrassCurve (ZMod q)) [Short W] [W.IsElliptic]
-  {PW : Type*}
-
-/-- The contract *before* the fix: the verifier sees only the state, the challenge and the folded
-commitments `ce, cw` (`Vfy` abstracts the CP-SNARK check on those). The four calldata points enter
-only through `ce` and `cw`. -/
-def OldAccepts (Vfy : ℕ → (Fin sN → ℕ) → (Fin sN → ℕ) → ℕ → (ℕ × ℕ) → (ℕ × ℕ) → PW → Prop)
-    (cd : Calldata sN PW) : Prop :=
-  (cd.i = 0 ∧ cd.z0 = cd.zi) ∨
-    (cd.i ≠ 0 ∧ ∃ ce cw, foldC W cd.uCmE cd.cmT (cd.challenge % 2 ^ 128) = some ce ∧
-      foldC W cd.uCmW cd.ucmW (cd.challenge % 2 ^ 128) = some cw ∧
-      Vfy cd.i cd.z0 cd.zi cd.challenge ce cw cd.proof)
-
-/-- **The pre-fix contract does not bind the calldata points.** If it accepts, it also accepts the
-same call with `cm_t` and `u.cm_w` replaced by arbitrary valid points (and `U.cm_e`, `U.cm_w`
-adjusted so the folded commitments are unchanged): the points can be chosen after the proof. -/
-theorem old_accepts_retarget (hb : W.a₆ ≠ 0)
-    (Vfy : ℕ → (Fin sN → ℕ) → (Fin sN → ℕ) → ℕ → (ℕ × ℕ) → (ℕ × ℕ) → PW → Prop)
-    {cd : Calldata sN PW} (hi : cd.i ≠ 0) (hacc : OldAccepts W Vfy cd)
-    {tt vv : ℕ × ℕ} {Pt Pv : W.toAffine.Point} (ht : decodeG1 W tt = some Pt)
-    (hv : decodeG1 W vv = some Pv) :
-    ∃ cd' : Calldata sN PW, cd'.cmT = tt ∧ cd'.ucmW = vv ∧ cd'.i = cd.i ∧ cd'.z0 = cd.z0 ∧
-      cd'.zi = cd.zi ∧ cd'.challenge = cd.challenge ∧ cd'.proof = cd.proof ∧
-      OldAccepts W Vfy cd' := by
-  rcases hacc with ⟨h0, -⟩ | ⟨-, ce, cw, hce, hcw, hV⟩
-  · exact absurd h0 hi
-  obtain ⟨PA, PB, hA, hB, hce'⟩ := foldC_spec W hb hce
-  obtain ⟨PC, PD, hC, hD, hcw'⟩ := foldC_spec W hb hcw
-  refine ⟨⟨cd.i, cd.z0, cd.zi, cd.challenge,
-      encodeG1 W (PA + (cd.challenge % 2 ^ 128) • PB - (cd.challenge % 2 ^ 128) • Pt),
-      encodeG1 W (PC + (cd.challenge % 2 ^ 128) • PD - (cd.challenge % 2 ^ 128) • Pv), vv, tt,
-      cd.proof⟩,
-    rfl, rfl, rfl, rfl, rfl, rfl, rfl, Or.inr ⟨hi, ce, cw, ?_, ?_, hV⟩⟩
-  · simp only [foldC, ecMul, ecAdd, ht, decode_encode W hb, Option.map_some, Option.bind_some]
-    rw [hce']; congr 2; abel
-  · simp only [foldC, ecMul, ecAdd, hv, decode_encode W hb, Option.map_some, Option.bind_some]
-    rw [hcw']; congr 2; abel
-
-end PreFix
-
 end EVM
 end Sonobe

@@ -33,13 +33,6 @@ decider circuit and the contract (with precompiles as partial functions).
 
 Everything is an explicit hypothesis of the theorems that use it; there are no axioms.
 
-## Rust issues found along the way
-
-The formalization surfaced five issues in the Rust code, one of them critical for the EVM verifier
-(the decider did not bind the points the contract folds, so false statements were provable). They are
-fixed on this branch. **See [`RUST_FINDINGS.md`](RUST_FINDINGS.md)** for the description, impact and
-evidence of each.
-
 ## Layout
 
 | Directory | Content |
