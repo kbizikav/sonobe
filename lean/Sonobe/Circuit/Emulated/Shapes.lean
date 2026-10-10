@@ -16,7 +16,7 @@ variable {p1 p2 : ℕ} [Fact p1.Prime] [Fact p2.Prime]
 /-- Bit length of the magnitude of an integer (`BigInt::bits`). -/
 def bitsLen (x : ℤ) : ℕ := x.natAbs.size
 
-/-- `compute_bounds` for 32-bit limbs (emulated.rs:1102). -/
+/-- `compute_bounds` for 32-bit limbs (emulated.rs:1140). -/
 def computeBounds (lb ub : ℤ) : ℕ → Bnd := fun i =>
   let len := max (bitsLen lb) (bitsLen ub)
   if i < len / 32 then ⟨if lb < 0 then 1 - 2 ^ 32 else 0, if 0 < ub then 2 ^ 32 - 1 else 0⟩

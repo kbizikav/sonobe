@@ -4,17 +4,16 @@ import Sonobe.Circuit.AugComplete
 import Sonobe.IVC.Completeness
 
 /-!
-**IVC completeness with the circuit assumptions derived.**
+**IVC completeness from the circuit models.**
 
-`IVC.ivc_complete` assumed `AugComplete` and `CFComplete`, statements about the existence of
-satisfying assignments of the augmented and the CycleFold circuit. Here both are *derived* from
-the constraint-level models, exactly as `FinalSoundness` does for the soundness side:
+`IVC.ivc_complete` needs satisfying assignments of the augmented and the CycleFold circuit; they
+are derived from the constraint-level models:
 
 * `Gadget.cfComplete_of_circuit` — the honest witness of `verify_point_rlc`;
 * `Gadget.augComplete_of_circuit` — the honest witness of the augmented circuit, including the
   Fiat–Shamir derivation of both secondary challenges.
 
-Trusted in addition to the soundness-side assumptions: the *completeness* direction of the R1CS
+Trusted in addition to the soundness side: the *completeness* direction of the R1CS
 synthesis (`constraint model ⇒ R1CS satisfiable`), the completeness half of the emulated modular
 arithmetic (`EmuArith.Complete`), and that the step circuit is satisfiable (`hstepc`).
 -/

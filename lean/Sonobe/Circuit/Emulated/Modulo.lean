@@ -3,7 +3,7 @@ import Sonobe.Circuit.Emulated.Equal
 import Sonobe.Circuit.Emulated.Lt
 
 /-!
-`LimbedVar::modulo` (emulated.rs:748): reduce an unaligned limbed integer `self` modulo the
+`LimbedVar::modulo` (emulated.rs:776): reduce an unaligned limbed integer `self` modulo the
 constant `m = p₂`. The quotient `q` and the remainder `r` are hints (`Loose` allocations); the
 circuit enforces `q·m + r = self` over the integers (`enforce_equal_unaligned`) and `r < m`
 (`enforce_lt`).

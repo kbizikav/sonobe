@@ -15,8 +15,9 @@ every theorem depends only on `propext`, `Classical.choice`, `Quot.sound`).
 What the circuits must satisfy is **derived** from constraint-level models of the Rust gadgets, not
 assumed: bit decompositions, `to_affine`, complete addition, double-and-add, canonical emulated
 limbs, `enforce_lt`, the emulated `modulo` / `enforce_congruent` / relaxed-R1CS check (`add_unaligned`,
-`mul_unaligned`, the carry argument of `enforce_equal_unaligned`), absorb, the Griffin sponge, the Fiat–Shamir challenges, the fold verifiers, the
-decider circuit and the contract (with precompiles as partial functions).
+`mul_unaligned`, the carry argument of `enforce_equal_unaligned`), absorb, the Griffin sponge,
+the Fiat–Shamir challenges, the fold verifiers, the decider circuit and the contract (with
+precompiles as partial functions).
 
 ## What is assumed
 

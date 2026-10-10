@@ -5,16 +5,16 @@ import Sonobe.Circuit.CFBridge
 /-!
 **IVC soundness with the circuit assumptions derived.**
 
-`IVC.ivc_sound` assumed `AugSound` and `CFSound`, statements about satisfying assignments of the
-augmented and the CycleFold circuit. Here both are *derived* from constraint-level models of the
-Rust gadgets:
+`IVC.ivc_sound` needs `AugSound` and `CFSound`, statements about satisfying assignments of the
+augmented and the CycleFold circuit; both are derived from constraint-level models of the Rust
+gadgets:
 
 * `Gadget.cfSound_of_circuit` — CycleFold circuit (bit decomposition, `to_affine`, the
   double-and-add chain with incomplete formulas, the Renes–Costello–Batina complete addition);
 * `Gadget.augSound_of_circuit` — augmented circuit (canonical `Tight` limbs, emulated absorb,
   duplex sponge, canonical `to_bits_le`, primary/secondary fold verifiers, base-case selects).
 
-What remains assumed is listed in the hypotheses of the theorem.
+The remaining assumptions are the hypotheses of the theorem.
 -/
 
 namespace Sonobe

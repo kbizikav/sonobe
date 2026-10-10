@@ -8,7 +8,7 @@ The relaxed R1CS check over the emulated field (`R1CSVar::evaluate_r1cs` followe
 
   `(1 · (A_i·z)) · (B_i·z)  +  (−u) · (C_i·z)  ≡  e_i  (mod p₂)`.
 
-`M_i·z` is a sum of constant-coefficient × variable products (`VectorMulGadget`, emulated.rs:1048),
+`M_i·z` is a sum of constant-coefficient × variable products (`VectorMulGadget`, emulated.rs:1082),
 computed limb-wise with no constraints. The two products of non-constant values are
 `mul_unaligned`; `enforce_equivalent` is `enforce_congruent`.
 -/

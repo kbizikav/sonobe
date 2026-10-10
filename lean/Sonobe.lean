@@ -19,7 +19,6 @@ import Sonobe.Circuit.EC.ScalarMulSpec
 import Sonobe.Circuit.CycleFold
 import Sonobe.Circuit.Emulated.Lt
 import Sonobe.Circuit.Emulated.Alloc
-import Sonobe.Circuit.Emulated.Carry
 import Sonobe.IVC.Model
 import Sonobe.IVC.Soundness
 import Sonobe.IVC.Completeness

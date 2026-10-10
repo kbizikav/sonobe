@@ -6,10 +6,9 @@ import Sonobe.IVC.Decider
 /-!
 **Soundness of the EVM decider verifier, from the circuit models.**
 
-`IVC.decider_sound` assumed `cpSound`, which bundled (a) the knowledge soundness of the CP-SNARK
-and (b) that the decider circuit and verifier enforce `DeciderRel`. Here (b) is derived: the decider
+`IVC.decider_sound` needs that the decider circuit and verifier enforce `DeciderRel`. The decider
 circuit is modelled constraint by constraint (`Circuit/Decider`), the contract at the level of
-words (`EVM/Decider`), and the only assumption left on the CP-SNARK is
+words (`EVM/Decider`), and the only assumption on the CP-SNARK is
 `LegoGroth16.CPKnowledgeSound`.
 -/
 
