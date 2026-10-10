@@ -11,6 +11,10 @@ proof certifies `z_{n+1} = F^{n+1}(z₀)`, where the statements `AugSound` / `CF
 assignment of the augmented / CycleFold circuit means* — are **derived from constraint-level models of
 the Rust gadgets** (`Circuit/*`), not assumed.
 
+`Gadget.ivc_complete_of_circuits` (`FinalCompleteness.lean`): the converse — an honest prover's IVC proof
+is accepted — with `AugComplete` and `CFComplete` **derived** from the same circuit models
+(`Circuit/{CFComplete,AugComplete,FS2Complete}`, `Circuit/Emulated/Complete`, `EC/ScalarMulComplete`).
+
 `Gadget.evm_decider_sound` (`FinalDecider.lean`): if the generated **EVM contract** accepts a call
 `(i, z₀, zᵢ, challenge, U.cm_e, U.cm_w, u.cm_w, cm_t, proof)` then `zᵢ = F^i(z₀)`. The decider circuit
 (`Circuit/Decider`) and the contract (`EVM/Decider`) are modelled, so the former hypothesis `cpSound`
@@ -92,6 +96,8 @@ them with the circuit's own challenge. `LegoGroth16::verify` also rejects wrongl
 * `HsInj` (collision resistance of the state hash incl. `pp_hash`), `¬DLRel` (binding), `Fork1/2`
   (rewinding / forking lemma), `CastOK`.
 * Curve facts: prime group order `r > 2^128`, no 2-torsion, `b ≠ 0`; field-size inequalities.
-* Not derived from circuits: completeness of the augmented/CycleFold circuits (`AugComplete`,
-  `CFComplete` in `IVC`), the step circuit (`StepRel`), and the secondary-fold challenge derivation
-  (not needed for soundness: the model only uses that it is a 128-bit boolean string).
+* Completeness side (`ivc_complete_of_circuits`) additionally trusts: `EmuArith.Complete` (the emulated
+  `modulo` arithmetic has witnesses), the completeness direction of the R1CS synthesis
+  (`AugRel ⇒ ∃ w, Sat`), and that the step circuit is satisfiable (`StepRel z (step z)`).
+* Not modelled: the step circuit itself (`StepRel` is abstract). The Fiat–Shamir derivation of the
+  secondary challenges is part of `AugRel` (`ChalRel`) and is used by the completeness proof.
