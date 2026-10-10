@@ -652,16 +652,17 @@ impl<F: SonobeField, Cfg, const LHS_ALIGNED: bool> LimbedVar<F, Cfg, LHS_ALIGNED
         let diff = self.sub_unaligned(other)?;
 
         let mut carry = FpVar::zero();
-        let mut carry_bounds = Bounds::zero();
-        let mut group_bounds = Bounds::zero();
-        let mut offset = 0;
+        // Bounds of `carry_in + Σ_{t in the group} limb_t 2^{W (t - start)}`, the value that has to
+        // be divisible by `2^{W * len}`, where `len` is the number of limbs in the group.
+        let mut value_bounds = Bounds::zero();
+        let mut len = 0usize;
         // `unwrap` is safe as long as `F` is a prime field with `|F| > 2`.
         let inv = F::from(BigUint::one() << F::BITS_PER_LIMB)
             .inverse()
             .unwrap();
 
         // For each limb in `diff`, we first try to group its _bounds_ into
-        // `group_bounds`.
+        // `value_bounds`.
         // If the new bounds do not overflow / underflow, we can safely group
         // the _limb_.
         //
@@ -694,44 +695,71 @@ impl<F: SonobeField, Cfg, const LHS_ALIGNED: bool> LimbedVar<F, Cfg, LHS_ALIGNED
         // each limb, i.e., `carry = (carry + limb) / 2^W`, until the virtual
         // grouped limb `v` is finalized.
         for (limb, bounds) in diff.limbs.iter().zip(&diff.bounds) {
-            if let Some(new_group_bounds) = group_bounds.add(&bounds.shl(offset)).filter_safe::<F>()
-            {
+            let extended = value_bounds.add(&bounds.shl(F::BITS_PER_LIMB * len));
+            if let Some(extended) = extended.filter_safe::<F>() {
                 carry = (carry + limb) * inv;
-                carry_bounds = carry_bounds.add(bounds).shr_narrower(F::BITS_PER_LIMB);
-                group_bounds = new_group_bounds;
-                offset += F::BITS_PER_LIMB;
+                value_bounds = extended;
+                len += 1;
             } else {
                 // New bounds overflow / underflow, i.e., the current group is
                 // finalized.
-
-                debug_assert!(carry_bounds.shl(offset).0 >= group_bounds.0);
-                debug_assert!(carry_bounds.shl(offset).1 <= group_bounds.1);
+                let (lb, num_bits, range) = Self::carry_range(&value_bounds, len)?;
 
                 // We ensure `carry` is small, i.e., `lb <= carry <= ub`, or
                 // equivalently, `0 <= carry - lb <= ub - lb`, which can be done
-                // by ensuring `carry - lb` is a `log2(ub - lb + 1)`-bit number.
-                (&carry
-                    - bigint_to_field_element::<F>(carry_bounds.0.clone())
-                        .ok_or(SynthesisError::Unsatisfiable)?)
-                .enforce_bit_length(
-                    (&carry_bounds.1 - &carry_bounds.0 + BigInt::one()).bits() as usize
-                )?;
+                // by ensuring `carry - lb` is a `num_bits`-bit number.
+                (&carry - bigint_to_field_element::<F>(lb).ok_or(SynthesisError::Unsatisfiable)?)
+                    .enforce_bit_length(num_bits)?;
 
+                // The limb starts the next group, whose incoming carry is any
+                // value that the range check above allows, which is wider than
+                // the tightest range `lb..=ub` unless its size is a power of two.
                 carry = (carry + limb) * inv;
-                carry_bounds = carry_bounds.add(bounds).shr_narrower(F::BITS_PER_LIMB);
-                // The limb folded above starts the next group and consumes one
-                // division by `2^W`, exactly as the first limb does in the
-                // group-extension (`if`) branch. Therefore `offset` must be
-                // `F::BITS_PER_LIMB` (not `0`), and `group_bounds` must keep
-                // tracking the undivided value `carry * 2^offset`.
-                offset = F::BITS_PER_LIMB;
-                group_bounds = carry_bounds.shl(offset);
+                value_bounds = range
+                    .add(bounds)
+                    .filter_safe::<F>()
+                    .ok_or(SynthesisError::Unsatisfiable)?;
+                len = 1;
             }
         }
 
         carry.enforce_equal(&FpVar::zero())?;
 
         Ok(())
+    }
+
+    /// [`LimbedVar::carry_range`] computes the range check of the carry that
+    /// closes a group of `len` limbs whose value lies in `value_bounds`.
+    ///
+    /// It returns the lower bound `lb` of the carry, the number of bits of
+    /// `carry - lb`, and the range `[lb, lb + 2^bits - 1]` that this check
+    /// actually allows (which can be wider than the tightest range).
+    ///
+    /// The field equation `carry * 2^{W * len} = v` implies the integer equation
+    /// only if their difference is below the field size. This is checked here
+    /// for every value in `value_bounds` and every carry in the allowed range.
+    fn carry_range(
+        value_bounds: &Bounds,
+        len: usize,
+    ) -> Result<(BigInt, usize, Bounds), SynthesisError> {
+        let tightest = value_bounds.shr_narrower(F::BITS_PER_LIMB * len);
+        if tightest.0 > tightest.1 {
+            // No multiple of `2^{W * len}` lies within the bounds.
+            return Err(SynthesisError::Unsatisfiable);
+        }
+        let num_bits = (&tightest.1 - &tightest.0 + BigInt::one()).bits() as usize;
+        let range = Bounds(
+            tightest.0.clone(),
+            &tightest.0 + (BigInt::one() << num_bits) - BigInt::one(),
+        );
+        let scaled = range.shl(F::BITS_PER_LIMB * len);
+        let modulus = BigInt::from_biguint(Sign::Plus, F::MODULUS.into());
+        // `carry * 2^{W * len} - v` lies in `[scaled.0 - value_bounds.1,
+        // scaled.1 - value_bounds.0]`.
+        if &scaled.0 - &value_bounds.1 <= -&modulus || &scaled.1 - &value_bounds.0 >= modulus {
+            return Err(SynthesisError::Unsatisfiable);
+        }
+        Ok((tightest.0, num_bits, range))
     }
 }
 
@@ -1386,13 +1414,14 @@ mod tests {
                 })?,
                 FpVar::new_witness(cs.clone(), || Ok(-Fr::one()))?,
             ],
+            // Wide bounds, but with room left for the carry of the previous group.
             vec![
                 Bounds(
                     BigInt::zero(),
-                    BigInt::from_biguint(Sign::Plus, Fr::MODULUS_MINUS_ONE_DIV_TWO.into()),
+                    (BigInt::from_biguint(Sign::Plus, Fr::MODULUS_MINUS_ONE_DIV_TWO.into()) >> 2usize),
                 ),
                 Bounds(
-                    -BigInt::from_biguint(Sign::Plus, Fr::MODULUS_MINUS_ONE_DIV_TWO.into()),
+                    -(BigInt::from_biguint(Sign::Plus, Fr::MODULUS_MINUS_ONE_DIV_TWO.into()) >> 2usize),
                     BigInt::zero(),
                 ),
             ],
