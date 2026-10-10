@@ -52,3 +52,5 @@ import Sonobe.Circuit.Emulated.Shapes
 import Sonobe.Circuit.Emulated.Equal
 import Sonobe.Circuit.Emulated.Modulo
 import Sonobe.Circuit.EmuArithConcrete
+import Sonobe.Circuit.Emulated.Congruent
+import Sonobe.Circuit.Emulated.R1CSEval
