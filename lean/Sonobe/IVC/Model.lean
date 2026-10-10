@@ -64,12 +64,18 @@ structure Setup (F1 G1 F2 G2 S C1 : Type*) (l2 : ℕ) [Field F1] [AddCommGroup G
   hs : F1 → F1 → S → S → RawRU F1 C1 → RunningInstance F2 G2 l2 → F1
   /-- Fiat–Shamir challenge (an integer `< 2^128`) of the primary fold, from the raw absorbed data -/
   ch1n : F1 → RawRU F1 C1 → RawIU F1 C1 → C1 → ℕ
-  /-- challenge of a secondary fold (prover side) -/
-  ch2 : F1 → RunningInstance F2 G2 l2 → IncomingInstance G2 F2 l2 → G2 → F2
+  /-- challenges (integers `< 2^128`) of the two secondary folds of a step, as derived from the
+  transcript: they depend on everything absorbed so far (the primary data, then the first fold) -/
+  ch2an : F1 → RawRU F1 C1 → RawIU F1 C1 → C1 → RunningInstance F2 G2 l2 →
+    IncomingInstance G2 F2 l2 → G2 → ℕ
+  ch2bn : F1 → RawRU F1 C1 → RawIU F1 C1 → C1 → RunningInstance F2 G2 l2 →
+    IncomingInstance G2 F2 l2 → G2 → IncomingInstance G2 F2 l2 → G2 → ℕ
   /-- public inputs of one CycleFold circuit: `(ρ, P₀, P₁, P₂)` -/
   cfX : ℕ → C1 → C1 → C1 → Fin l2 → F2
   /-- the challenge is `< 2^128` -/
   ch1n_small : ∀ pp U u π, ch1n pp U u π < 2 ^ 128
+  ch2an_small : ∀ pp U u π cfU cu0 cπ0, ch2an pp U u π cfU cu0 cπ0 < 2 ^ 128
+  ch2bn_small : ∀ pp U u π cfU cu0 cπ0 cu1 cπ1, ch2bn pp U u π cfU cu0 cπ0 cu1 cπ1 < 2 ^ 128
 
 variable {l2 : ℕ} (T : Setup F1 G1 F2 G2 S C1 l2)
 
