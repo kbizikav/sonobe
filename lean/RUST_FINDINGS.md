@@ -8,7 +8,7 @@ All items are fixed on this branch; `cargo test --release --features evm` passes
 | # | Issue | Severity | Fix |
 |---|---|---|---|
 | F1 | Decider public inputs do not bind the points the EVM contract folds | **Critical** (EVM verifier) | `5097342` |
-| F2 | `(0,0,0)` passes the on-curve check, so the CycleFold relation can be falsified | **High** | `b84a16a` |
+| F2 | `(0,0,0)` passes the on-curve check, so the CycleFold relation can be falsified | Medium (no exploit shown) | `b84a16a` |
 | F3 | `enforce_equal_unaligned` can accept a false equality (emulated `modulo`, congruence) | Medium (no exploit shown) | `2a73249` |
 | F4 | Loosely allocated emulated integers can exceed their static bounds | Medium (no exploit shown) | `beea230` |
 | F5 | `LegoGroth16::verify` ignores surplus or missing public inputs | Low–Medium | `5097342` |
