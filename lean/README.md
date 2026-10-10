@@ -14,7 +14,8 @@ every theorem depends only on `propext`, `Classical.choice`, `Quot.sound`).
 
 What the circuits must satisfy is **derived** from constraint-level models of the Rust gadgets, not
 assumed: bit decompositions, `to_affine`, complete addition, double-and-add, canonical emulated
-limbs, `enforce_lt`, absorb, the Griffin sponge, the Fiat–Shamir challenges, the fold verifiers, the
+limbs, `enforce_lt`, the emulated `modulo` / `enforce_congruent` / relaxed-R1CS check (`add_unaligned`,
+`mul_unaligned`, the carry argument of `enforce_equal_unaligned`), absorb, the Griffin sponge, the Fiat–Shamir challenges, the fold verifiers, the
 decider circuit and the contract (with precompiles as partial functions).
 
 ## What is assumed
@@ -22,8 +23,10 @@ decider circuit and the contract (with precompiles as partial functions).
 * **Cryptography**: collision resistance of the state hash, binding of the four Pedersen keys, the
   rewinding (forking) lemma `Fork1/2`, and `LegoGroth16.CPKnowledgeSound` (the only assumption on the
   CP-SNARK).
-* **Emulated-field arithmetic**: `EmuArith`, `EmuR1CS` (soundness of `modulo`-based operations) and
-  `EmuArith.Complete`.
+* **Emulated-field arithmetic**: only the completeness half, `EmuArith.Complete` (the honest
+  prover can satisfy `modulo`). Soundness is derived; the theorems assume the synthesis of the
+  carry plans succeeded (it is part of the relations `ModRel`/`CongRel`) and that the static bounds
+  in `Emulated/{Bounds,Shapes}` match `emulated.rs`. The statements take `bitsLen(p₂−1) = 254`.
 * **Model fidelity** (audited by hand, plus an independent review of each module against the Rust
   code): that `AugRel`, `CFRel`, `DecRel` and the contract model are consequences of the Rust
   constraints, and for completeness that they are also sufficient (R1CS satisfiability); that the

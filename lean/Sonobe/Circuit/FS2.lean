@@ -15,9 +15,9 @@ cm_e' = proof.scalar_mul_le(rho_bits) + U.cm_e              -- native curve gadg
 cm_w' = u.cm_w.scalar_mul_le(rho_bits) + U.cm_w
 ```
 
-The emulated modulo arithmetic is the single explicit assumption `EmuArith` (the user-approved
-scope: canonical allocation, `enforce_lt` and the carry lifting are proved in `Circuit/Emulated`, the
-operation-specific static-bound argument for `modulo` is assumed).
+The emulated modulo arithmetic enters through the interface `EmuArith`; its instance
+`EmuArith.concrete` (`Circuit/EmuArithConcrete.lean`) is derived from the constraints of
+`add_unaligned`, `mul_unaligned` and `modulo`.
 -/
 
 namespace Sonobe
