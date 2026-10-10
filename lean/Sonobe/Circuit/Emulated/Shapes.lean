@@ -103,5 +103,70 @@ theorem tight_valid (hbits : bitsLen ((p2 : ℤ) - 1) = 254) {a : ℕ → ZMod p
       simp only [limbZ, show ¬ i < 8 by omega, if_false, Bnd.Mem, Bnd.zero]
       exact ⟨le_rfl, le_rfl⟩
 
+/-! ### Loose allocation (`LimbedVar::alloc` with `RangeCheckMode::Loose`) -/
+
+/-- Bounds of a loosely allocated variable of `n` limbs whose range has a negative lower bound
+(`lbNeg`) and a positive upper bound (`ubPos`): only the bit length of each limb is enforced. -/
+def looseB (lbNeg ubPos : Bool) (n : ℕ) : ℕ → Bnd := fun i =>
+  if i < n then ⟨if lbNeg then 1 - 2 ^ 32 else 0, if ubPos then 2 ^ 32 - 1 else 0⟩ else Bnd.zero
+
+/-- Constraints of a loose allocation: every absolute limb has 32 bits, the sign is a Boolean (or a
+constant when the range has one sign), and `limb = neg ? -abs : abs`. -/
+def LooseRel (lbNeg ubPos : Bool) (n : ℕ) (a : ℕ → ZMod p1) (neg : ZMod p1) : Prop :=
+  ∃ (ab : ℕ → ZMod p1) (bits : ℕ → Fin 32 → ZMod p1),
+    (∀ i < n, ToNBitsRel 32 (ab i) (bits i)) ∧
+    (lbNeg = true → ubPos = true → IsBool neg) ∧
+    (lbNeg = true → ubPos = false → neg = 1) ∧
+    (lbNeg = false → neg = 0) ∧
+    ∀ i < n, a i = ab i - 2 * neg * ab i
+
+theorem loose_valid (hp1 : 2 ^ 32 ≤ p1) {lbNeg ubPos : Bool} {n : ℕ}
+    (hne : 0 < n → lbNeg = true ∨ ubPos = true) {a : ℕ → ZMod p1} {neg : ZMod p1}
+    (h : LooseRel lbNeg ubPos n a neg) :
+    ∃ z : ℕ → ℤ, Valid (looseB lbNeg ubPos n) (tr n a) z := by
+  obtain ⟨ab, bits, hb, h1, h2, h3, h4⟩ := h
+  have hval : ∀ i < n, (ab i).val < 2 ^ 32 := fun i hi => (toNBits_sound hp1 (hb i hi)).2
+  have hneg01 : neg = 0 ∨ neg = 1 := by
+    by_cases hl : lbNeg = true
+    · by_cases hu : ubPos = true
+      · exact isBool_iff.mp (h1 hl hu)
+      · exact Or.inr (h2 hl (by simpa using hu))
+    · exact Or.inl (h3 (by simpa using hl))
+  refine ⟨fun i => if i < n then (if neg = 1 then -((ab i).val : ℤ) else ((ab i).val : ℤ)) else 0, ?_⟩
+  intro i
+  by_cases hi : i < n
+  · have hv := hval i hi
+    have hv' : ((ab i).val : ℤ) < 2 ^ 32 := by exact_mod_cast hv
+    refine ⟨?_, ?_⟩
+    · simp only [looseB, hi, if_true, Bnd.Mem]
+      rcases hneg01 with h0 | h0
+      · subst h0
+        have hl : lbNeg = false ∨ lbNeg = true := by cases lbNeg <;> simp
+        have hu : ubPos = true := by
+          rcases hne (by omega) with h | h
+          · by_contra hu
+            have hu' : ubPos = false := by simpa using hu
+            have := h2 h hu'
+            simp at this
+          · exact h
+        subst hu
+        simp only [zero_ne_one, if_false]
+        split_ifs <;> constructor <;> first | omega | positivity
+      · subst h0
+        have hl : lbNeg = true := by
+          by_contra hl
+          have hl' : lbNeg = false := by simpa using hl
+          have := h3 hl'
+          simp at this
+        subst hl
+        simp only [if_true]
+        split_ifs <;> constructor <;> first | omega | positivity
+    · simp only [tr, hi, if_true]
+      rcases hneg01 with h0 | h0
+      · subst h0; simp [h4 i hi]
+      · subst h0; simp [h4 i hi]; ring
+  · simp only [tr, hi, if_false, looseB, Bnd.Mem, Bnd.zero]
+    exact ⟨⟨le_rfl, le_rfl⟩, by simp⟩
+
 end Gadget
 end Sonobe

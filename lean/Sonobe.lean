@@ -48,3 +48,6 @@ import Sonobe.FinalCompleteness
 import Sonobe.Circuit.Emulated.Bounds
 import Sonobe.Circuit.Emulated.Limbs
 import Sonobe.Circuit.Emulated.Mul
+import Sonobe.Circuit.Emulated.Shapes
+import Sonobe.Circuit.Emulated.Equal
+import Sonobe.Circuit.Emulated.Modulo
