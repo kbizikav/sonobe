@@ -103,6 +103,56 @@ def ch1nC (dT : List (ZMod p1)) (pp : ZMod p1) (U : RawRU (ZMod p1) (ZMod p2 × 
     (u : RawIU (ZMod p1) (ZMod p2 × ZMod p2)) (π : ZMod p2 × ZMod p2) : ℕ :=
   (hashOut sp (spInit sp pp dT) (encRU1 p1 p2 U ++ encIU1 p1 p2 u ++ encPtE p1 p2 π)).val % 2 ^ 128
 
+/-- `challenge_field_element`: squeeze one element and absorb it back (transcripts/mod.rs:116). -/
+def chalStep (S : SpongeState (ZMod p1) sp.t) (L : List (ZMod p1)) :
+    ZMod p1 × SpongeState (ZMod p1) sp.t :=
+  let r := sp.get (sp.add S L) 1
+  let c := r.1.headD 0
+  (c, sp.add r.2 [c])
+
+theorem chalStep_fst (S : SpongeState (ZMod p1) sp.t) (L : List (ZMod p1)) :
+    (chalStep sp S L).1 = hashOut sp S L := rfl
+
+variable {sp}
+
+/-- `IncomingInstanceVar::absorb_into` for a secondary instance: emulated `x`, native `cm_w`. -/
+noncomputable def encIU2 (u : IncomingInstance W2.toAffine.Point (ZMod p2) 7) : List (ZMod p1) :=
+  (List.ofFn fun j : Fin 7 => encE p1 p2 (u.x j)).flatten ++ pr (coordsOf W2 u.cmW)
+
+variable (sp)
+
+/-- The transcript after the primary fold: `add(U).add(u).add(π).challenge_bits`. -/
+def primState (dT : List (ZMod p1)) (pp : ZMod p1) (U : RawRU (ZMod p1) (ZMod p2 × ZMod p2))
+    (u : RawIU (ZMod p1) (ZMod p2 × ZMod p2)) (π : ZMod p2 × ZMod p2) :
+    SpongeState (ZMod p1) sp.t :=
+  (chalStep sp (spInit sp pp dT) (encRU1 p1 p2 U ++ encIU1 p1 p2 u ++ encPtE p1 p2 π)).2
+
+/-- The first secondary fold's challenge: `transcript.add(cf_U).add(cf_u).add(cf_π)` continues the
+transcript of the primary fold; the challenge is the low 128 bits of the squeezed element. -/
+noncomputable def sec1C (dT : List (ZMod p1)) (pp : ZMod p1)
+    (U : RawRU (ZMod p1) (ZMod p2 × ZMod p2)) (u : RawIU (ZMod p1) (ZMod p2 × ZMod p2))
+    (π : ZMod p2 × ZMod p2) (cfU : RunningInstance (ZMod p2) W2.toAffine.Point 7)
+    (cu0 : IncomingInstance W2.toAffine.Point (ZMod p2) 7) (cπ0 : W2.toAffine.Point) :
+    ZMod p1 × SpongeState (ZMod p1) sp.t :=
+  chalStep sp (primState sp dT pp U u π)
+    (encRU2 W2 cfU ++ encIU2 W2 cu0 ++ pr (coordsOf W2 cπ0))
+
+noncomputable def ch2anC (dT : List (ZMod p1)) (pp : ZMod p1)
+    (U : RawRU (ZMod p1) (ZMod p2 × ZMod p2)) (u : RawIU (ZMod p1) (ZMod p2 × ZMod p2))
+    (π : ZMod p2 × ZMod p2) (cfU : RunningInstance (ZMod p2) W2.toAffine.Point 7)
+    (cu0 : IncomingInstance W2.toAffine.Point (ZMod p2) 7) (cπ0 : W2.toAffine.Point) : ℕ :=
+  (sec1C W2 sp dT pp U u π cfU cu0 cπ0).1.val % 2 ^ 128
+
+/-- The second secondary fold's challenge. -/
+noncomputable def ch2bnC [Module (ZMod p2) W2.toAffine.Point] (dT : List (ZMod p1)) (pp : ZMod p1)
+    (U : RawRU (ZMod p1) (ZMod p2 × ZMod p2)) (u : RawIU (ZMod p1) (ZMod p2 × ZMod p2))
+    (π : ZMod p2 × ZMod p2) (cfU : RunningInstance (ZMod p2) W2.toAffine.Point 7)
+    (cu0 : IncomingInstance W2.toAffine.Point (ZMod p2) 7) (cπ0 : W2.toAffine.Point)
+    (cu1 : IncomingInstance W2.toAffine.Point (ZMod p2) 7) (cπ1 : W2.toAffine.Point) : ℕ :=
+  (chalStep sp (sec1C W2 sp dT pp U u π cfU cu0 cπ0).2
+    (encRU2 W2 (foldInstance ((ch2anC W2 sp dT pp U u π cfU cu0 cπ0 : ℕ) : ZMod p2) cπ0 cfU cu0) ++
+      encIU2 W2 cu1 ++ pr (coordsOf W2 cπ1))).1.val % 2 ^ 128
+
 end Enc
 
 end Gadget

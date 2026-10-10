@@ -281,7 +281,7 @@ theorem aug_uux_pos {v : AugVars p1 sN} {uux : ZMod p1}
     hp hp2 hp2' hG hpm h
   have co2 : ∀ k : Fin 8, Canon p2 (v.o2a k) := fun k => Fin.cases co2u (fun j => co2x j) k
   obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hstp, hN, hM, hA0, hA1,
-    huux⟩ := h
+    huux, -⟩ := h
   rw [hbc0] at hN hM hA0 hA1 huux
   simp only [selLimbs_zero, selPP_zero, selF0_zero] at hN hM hA0 hA1 huux
   have e1 : ∀ k : Fin 4, pr (v.aoN k) = encE p1 p2 (vE v (Fin.natAdd 8 k)) :=
@@ -315,7 +315,7 @@ theorem aug_uux_zero {v : AugVars p1 sN} {uux : ZMod p1}
   obtain ⟨hbc, -⟩ := aug_basecase W2 EA sp dS dT pm1 G StepRel h
   have hbc1 : v.bc = 1 := by rw [hbc, if_pos hi]
   obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hstp, hN, hM, hA0, hA1,
-    huux⟩ := h
+    huux, -⟩ := h
   rw [hbc1] at hN hM hA0 hA1 huux
   simp only [selLimbs_one, selPP_one, selF0_one] at hN hM hA0 hA1 huux
   have e1 : ∀ k : Fin 4, pr (v.aoN k) = [0, 0] := fun k => by

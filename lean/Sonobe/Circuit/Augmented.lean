@@ -134,6 +134,36 @@ def FrontRel (v : AugVars p1 sN) : Prop :=
       pr (v.aoT 4) ++ pr (v.aoT 5) ++ pr (v.aoT 6) ++ pr (v.aoT 7)) ∧
   ToBitsRel 254 pm1 v.c v.cb
 
+/-- The absorbed list of the primary fold's transcript. -/
+def primList (v : AugVars p1 sN) : List (ZMod p1) :=
+  [v.Uu, v.Ux] ++ pr (v.aoT 0) ++ pr (v.aoT 1) ++ pr (v.aoT 2) ++ pr (v.aoT 3) ++ [v.uxIn] ++
+    pr (v.aoT 4) ++ pr (v.aoT 5) ++ pr (v.aoT 6) ++ pr (v.aoT 7)
+
+/-- `L` is the absorbed list of `n` emulated variables (a fresh `absorb_into` for each). -/
+def AbsPairs {n : ℕ} (a : Fin n → ℕ → ZMod p1) (L : List (ZMod p1)) : Prop :=
+  ∃ (aw : Fin n → AbsWit p1) (ao : Fin n → ZMod p1 × ZMod p1),
+    (∀ k, EmuAbsRel (a k) (aw k) (ao k)) ∧ L = prs ao
+
+/-- `L` is the absorbed list of a native point (a fresh `to_affine`). -/
+def AffPair (P : PP (ZMod p1)) (L : List (ZMod p1)) : Prop :=
+  ∃ w : AffWit (ZMod p1), AffRel P w ∧ L = pr (w.x, w.y)
+
+/-- Derivation of the two secondary challenges from the transcript: after the primary challenge
+(squeezed and absorbed back) the transcript absorbs `cf_U`, `cf_u₀`, `cf_π₀` and yields `ρ₀`; then
+`cf_UU`, `cf_u₁`, `cf_π₁` and yields `ρ₁` (circuits.rs:167-176, fs/nova/circuits/verifier.rs:119). -/
+def ChalRel (dT : List (ZMod p1)) (pm1 : ℕ → Bool) (v : AugVars p1 sN) : Prop :=
+  ∃ (l1 l2 l3 l4 l5 l6 l7 l8 l9 l10 l11 l12 : List (ZMod p1)) (cb2 cb3 : Fin 254 → ZMod p1),
+    AbsPairs v.sa l1 ∧ AffPair v.sE l2 ∧ AffPair v.sW l3 ∧ AbsPairs (cfI0 v).x l4 ∧
+    AffPair v.c0W l5 ∧ AffPair v.cp0 l6 ∧
+    ToBitsRel 254 pm1 (chalStep sp (chalStep sp (spInit sp v.pp dT) (primList v)).2
+      (l1 ++ l2 ++ l3 ++ l4 ++ l5 ++ l6)).1 cb2 ∧
+    (∀ j < 128, v.rb0 j = cbN cb2 j) ∧
+    AbsPairs v.o1a l7 ∧ AffPair v.o1E l8 ∧ AffPair v.o1W l9 ∧ AbsPairs (cfI1 v).x l10 ∧
+    AffPair v.c1W l11 ∧ AffPair v.cp1 l12 ∧
+    ToBitsRel 254 pm1 (chalStep sp (chalStep sp (chalStep sp (spInit sp v.pp dT) (primList v)).2
+      (l1 ++ l2 ++ l3 ++ l4 ++ l5 ++ l6)).2 (l7 ++ l8 ++ l9 ++ l10 ++ l11 ++ l12)).1 cb3 ∧
+    (∀ j < 128, v.rb1 j = cbN cb3 j)
+
 /-- Constraints of the augmented circuit; `uux` is its public output. -/
 def AugRel (v : AugVars p1 sN) (uux : ZMod p1) : Prop :=
   -- 1. base case
@@ -166,7 +196,9 @@ def AugRel (v : AugVars p1 sN) (uux : ZMod p1) : Prop :=
   uux = hashOut sp (spInit sp v.pp dS)
     ([v.i + 1] ++ List.ofFn v.z0 ++ List.ofFn v.nx ++
       [selF0 v.bc (v.Uu + rhoOf v.cb), selF0 v.bc (v.uxIn * rhoOf v.cb + v.Ux)] ++
-      prs v.aoN ++ prs v.aoM ++ pr ((v.noM 0).x, (v.noM 0).y) ++ pr ((v.noM 1).x, (v.noM 1).y))
+      prs v.aoN ++ prs v.aoM ++ pr ((v.noM 0).x, (v.noM 0).y) ++ pr ((v.noM 1).x, (v.noM 1).y)) ∧
+  -- 5. the secondary challenges are derived from the transcript
+  ChalRel sp dT pm1 v
 
 omit [Fact p2.Prime] in
 /-- The front part of `AugRel` is `FrontRel`. -/
