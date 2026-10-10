@@ -9,10 +9,10 @@ All items are fixed on this branch; `cargo test --release --features evm` passes
 |---|---|---|---|
 | F1 | Decider public inputs do not bind the points the EVM contract folds | **Critical** (EVM verifier) | `5097342` |
 | F2 | `(0,0,0)` passes the on-curve check, so the CycleFold relation can be falsified | **High** | `b84a16a` |
-| F3 | Loosely allocated emulated integers can exceed their static bounds | Medium (no exploit shown) | `beea230` |
-| F4 | `LegoGroth16::verify` ignores surplus or missing public inputs | Low–Medium | `5097342` |
-| F5 | Pedersen gadgets: silent truncation in `msm`, implicit ordering of committed variables | Low | `9a4b0d1` |
-| F6 | `enforce_equal_unaligned` does not guarantee the integer equality it is used for | Medium (no exploit shown) | `2a73249` |
+| F3 | `enforce_equal_unaligned` can accept a false equality (emulated `modulo`, congruence) | Medium (no exploit shown) | `2a73249` |
+| F4 | Loosely allocated emulated integers can exceed their static bounds | Medium (no exploit shown) | `beea230` |
+| F5 | `LegoGroth16::verify` ignores surplus or missing public inputs | Low–Medium | `5097342` |
+| F6 | Pedersen gadgets: silent truncation in `msm`, implicit ordering of committed variables | Low | `9a4b0d1` |
 
 ## F1. The decider does not bind the points the contract folds
 
@@ -71,7 +71,42 @@ applied to all witness points of the CycleFold circuit and to the commitments of
 incoming instances. For emulated affine points it is a no-op, since they have no projective
 ambiguity.
 
-## F3. Loose emulated allocation can exceed the static bounds
+## F3. `enforce_equal_unaligned` can accept a false equality
+
+**What it does.** `enforce_equal_unaligned` is the only place where equality of two emulated
+integers is enforced, so every emulated reduction and congruence rests on it: `modulo` (used for
+`U.u + ρ` and `b·ρ + a` in the folding verifier), `enforce_congruent`, and the secondary relaxed R1CS
+check in the decider. It folds the limbs of the difference into groups, carries
+`(carry + limb) / 2^32` limb by limb, and range-checks the carry when a group is closed. The checks
+are made in the native field, so they imply the integer equality only if no group sum wraps modulo
+the native prime `p`.
+
+**What was wrong.** The static analysis that is meant to rule out wrapping had three gaps:
+
+1. The carry bounds used a rounding (`shr_narrower`) that is valid only for integer-valued carries,
+   but the carry is a field element.
+2. After a group was closed, the next group started from the narrowed carry range `[lb, ub]`, while
+   the range check `carry − lb < 2^bits` admits `[lb, lb + 2^bits − 1]`, up to twice as wide. A carry
+   in the extra part lies outside the bounds the next group's no-overflow check assumed.
+3. Nothing checked that the field equation `carry · 2^(32·len) = v` implies the integer equation,
+   which needs `|carry · 2^(32·len) − v| < p` for every admitted `v` and carry.
+
+**Impact.** If a group sum wraps, the circuit accepts `self = other` for integers that differ by a
+multiple of `p`. For `modulo` this means the prover can present a remainder `r` that is not
+`self mod p₂`; the folded secondary instance `(u, x)` is then not `U + ρ·u`, so the secondary fold
+of CycleFold, which the IVC soundness argument relies on, is not enforced. In the decider, the same
+flaw weakens the check that the secondary relaxed R1CS instance is satisfied. Reaching the wrapping
+case needs limb bounds close to the safe window `(p−1)/2`; no circuit of the repository does, and no
+concrete exploit was found. The guarantee was missing rather than known to be violated, and a
+proof of soundness could not be completed without it.
+
+**Fix.** The analysis tracks the bounds of the undivided group value, starts the next group from the
+range the check actually allows, and fails synthesis unless condition 3 holds for every value in the
+bounds and every admitted carry. None of the new checks triggers on the circuits of the repository,
+so shapes and keys are unchanged. One unit test used bounds too close to the safe window for the new
+check and was narrowed.
+
+## F4. Loose emulated allocation can exceed the static bounds
 
 `LimbedVar::alloc` in `RangeCheckMode::Loose` enforces `BITS_PER_LIMB` (32) bits on every limb, while
 the static `Bounds` were derived from the declared bit length. When that length is not a multiple of
@@ -87,7 +122,7 @@ exploit was found; whether it exists depends on the actual bound geometry.
 **Fix.** In loose mode the length is rounded up to whole limbs, so the bounds match the constraints.
 All tests still pass; the circuit shape, and therefore the keys, change slightly.
 
-## F4. `LegoGroth16::verify` ignores mismatched input lengths
+## F5. `LegoGroth16::verify` ignores mismatched input lengths
 
 `verify` combined the public inputs with `gamma_abc_g1_pub` using `zip`, which drops the longer
 side: surplus inputs were ignored and missing inputs contributed nothing. A proof for `x` was accepted
@@ -97,7 +132,7 @@ verifier is unaffected (fixed-size arrays).
 
 **Fix.** `verify` rejects inputs and commitments whose lengths differ from the verification key's.
 
-## F5. Pedersen gadgets
+## F6. Pedersen gadgets
 
 `PedersenGadget::msm` zipped generators with scalars and would silently drop scalars if the key were
 shorter (the native `commit` returns `MessageTooLong`). This is not reachable today because
@@ -111,31 +146,6 @@ variables (see the `TODO` in `pedersen.rs`).
 
 **Fix.** Both conditions are checked and make setup fail instead of misbehaving silently.
 
-## F6. `enforce_equal_unaligned` carry analysis
-
-`enforce_equal_unaligned` proves `self = other` over the integers by folding the limbs of the
-difference into groups, carrying `(carry + limb) / 2^32` limb by limb and range-checking the carry
-when a group is closed. The static analysis behind it had three gaps:
-
-1. The carry bounds used a rounding (`shr_narrower`) that is only valid for integer-valued carries,
-   but the carry is a field element.
-2. After a group was closed, the next group started from the narrowed carry range `[lb, ub]`,
-   while the range check `carry − lb < 2^bits` admits `[lb, lb + 2^bits − 1]`, up to twice as wide.
-   A carry in the extra part is outside the bounds the next group's no-overflow check assumed.
-3. Nothing checked that the field equation `carry · 2^(32·len) = v` implies the integer one, which
-   needs `|carry · 2^(32·len) − v| < p` for every admitted `v` and carry.
-
-If a sum wraps modulo `p`, a congruence between emulated integers can hold in the field while the
-integers differ, so `modulo`, `enforce_congruent` and `evaluate_r1cs`, which all end in this
-function, would accept a wrong remainder. No concrete exploit was found; whether one exists depends
-on the bound geometry of a particular circuit.
-
-**Fix.** The analysis tracks the bounds of the undivided group value, starts the next group from the
-range the check actually allows, and fails synthesis unless condition 3 holds for every value in the
-bounds and every admitted carry. None of the checks triggers on the circuits of the repository, so
-shapes and keys are unchanged. One unit test used bounds too close to the safe window for the new
-check and was narrowed.
-
 ## Observations
 
 * The augmented circuit allocates `pp_hash` as a free witness. This is sound because the verifier
@@ -146,5 +156,3 @@ check and was narrowed.
   circuit's `CHALLENGE_BITS` (128 by default).
 * Vectors are absorbed without a length prefix. Shapes are fixed by `pp_hash` and the keys, but the
   state-shape check (`same_state_shape`) is outside the circuit.
-* For emulated `modulo`, the static quotient bounds and the enforced range differ. This could not be
-  closed with a proof and is kept as an explicit assumption in the Lean development (`EmuArith`).
