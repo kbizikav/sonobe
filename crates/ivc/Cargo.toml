@@ -34,7 +34,9 @@ getrandom = { version = "0.2", features = ["js"] }
 wasm-bindgen-test = { workspace = true }
 
 [features]
-default = ["ark-std/print-trace", "evm"]
+default = ["evm"]
+# Opt-in: `start_timer!` uses `std::time::Instant`, which panics on wasm32-unknown-unknown.
+print-trace = ["ark-std/print-trace"]
 evm = [
     "dep:ark-bn254",
     "dep:askama",
