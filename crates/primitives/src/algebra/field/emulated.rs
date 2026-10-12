@@ -1424,10 +1424,11 @@ mod tests {
             fmt("add", &(u.clone() + &rho).bounds),
             fmt("mul", &(u.clone() * &rho + &a).bounds)
         );
-        let expected = std::fs::read_to_string(concat!(
+        // Embedded at compile time: wasm test runners have no filesystem.
+        let expected = include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../../lean/diff/emulated_bounds.txt"
-        ))?;
+        ));
         assert_eq!(got, expected);
         Ok(())
     }
