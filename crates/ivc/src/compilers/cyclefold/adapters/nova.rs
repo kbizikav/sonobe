@@ -345,16 +345,25 @@ mod tests {
             },
             vec![(); 4],
             vec![
-                (
-                    "challenge changed",
-                    Box::new(|p| p.4[0] += Fr::from(1u64)),
-                ),
+                ("challenge changed", Box::new(|p| p.4[0] += Fr::from(1u64))),
                 ("challenge dropped", Box::new(|p| p.4.clear())),
                 ("challenge added", Box::new(|p| p.4.push(Fr::from(1u64)))),
-                ("U.cm_e changed", Box::new(|p| p.1.cm_e = (p.1.cm_e + p.1.cm_e).into_affine().into())),
-                ("U.cm_w changed", Box::new(|p| p.1.cm_w = (p.1.cm_w + p.1.cm_w).into_affine().into())),
-                ("u.cm_w changed", Box::new(|p| p.2.cm_w = (p.2.cm_w + p.2.cm_w).into_affine().into())),
-                ("cm_t changed", Box::new(|p| p.3 = (p.3 + p.3).into_affine().into())),
+                (
+                    "U.cm_e changed",
+                    Box::new(|p| p.1.cm_e = (p.1.cm_e + p.1.cm_e).into_affine().into()),
+                ),
+                (
+                    "U.cm_w changed",
+                    Box::new(|p| p.1.cm_w = (p.1.cm_w + p.1.cm_w).into_affine().into()),
+                ),
+                (
+                    "u.cm_w changed",
+                    Box::new(|p| p.2.cm_w = (p.2.cm_w + p.2.cm_w).into_affine().into()),
+                ),
+                (
+                    "cm_t changed",
+                    Box::new(|p| p.3 = (p.3 + p.3).into_affine().into()),
+                ),
             ],
             &mut rng,
         )

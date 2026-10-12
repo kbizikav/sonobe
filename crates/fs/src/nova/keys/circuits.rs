@@ -1,3 +1,5 @@
+//! In-circuit Nova keys and relation check gadgets using them.
+
 use ark_r1cs_std::alloc::{AllocVar, AllocationMode};
 use ark_relations::gr1cs::{Namespace, SynthesisError};
 use ark_std::borrow::Borrow;
@@ -16,6 +18,8 @@ use super::super::{
 };
 use crate::nova::keys::NovaKey;
 
+/// [`NovaKeyVar`] is the in-circuit variable for [`NovaKey`], consisting of
+/// the constraint system variable `A` and the commitment key variable.
 #[derive(Clone)]
 pub struct NovaKeyVar<A, CM: CommitmentDefGadget> {
     arith: A,

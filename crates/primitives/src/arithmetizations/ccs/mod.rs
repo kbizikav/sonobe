@@ -130,7 +130,11 @@ pub trait CCS:
     }
 }
 
+/// [`CCSGadget`] is the in-circuit counterpart of [`CCS`], i.e., an in-circuit
+/// CCS structure whose matrices are in-circuit variables.
 pub trait CCSGadget {
+    /// [`CCSGadget::FieldVar`] is the type of the in-circuit field variables
+    /// for the matrix entries and assignments.
     type FieldVar: TwoStageFieldVar;
 
     /// [`CCS::matrices`] returns the matrices contained in a concrete CCS

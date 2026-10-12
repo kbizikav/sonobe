@@ -73,7 +73,7 @@ impl<CM: GroupBasedCommitment, TF: SonobeField, const CHALLENGE_BITS: usize> Fol
     fn proof_commitments<const M: usize, const N: usize>(
         proof: &Self::Proof<M, N>,
     ) -> Vec<CM::Commitment> {
-        vec![proof.clone()]
+        vec![*proof]
     }
 }
 

@@ -1,3 +1,6 @@
+//! This module defines [`Inputize`], which computes the public inputs of a
+//! circuit from out-of-circuit values.
+
 use ark_ff::Field;
 use ark_r1cs_std::GR1CSVar;
 

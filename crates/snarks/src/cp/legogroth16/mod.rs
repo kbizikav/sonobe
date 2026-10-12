@@ -1,3 +1,11 @@
+//! Implementation of LegoGroth16, the commit-and-prove variant of Groth16 from
+//! [LegoSNARK](https://eprint.iacr.org/2019/142).
+//!
+//! It combines a commit-carrying Groth16 (ccGroth16), whose proof contains a
+//! commitment `D` to a subset of the witness variables, with a
+//! [`LinearSubspaceSNARK`] proving that `D` and the external Pedersen
+//! commitments open to the same values.
+
 use ark_ec::{
     AffineRepr, CurveGroup, VariableBaseMSM,
     pairing::{Pairing, PairingOutput},
@@ -39,13 +47,18 @@ use crate::{
 #[cfg(feature = "evm")]
 pub mod evm_verifier;
 
+/// [`CCGroth16ProverKey`] is the proving key of the commit-carrying Groth16,
+/// where `G` and `H` are the generators of `E::G1` and `E::G2`.
 pub struct CCGroth16ProverKey<E: Pairing> {
-    /// The element `beta * G` in `E::G1`.
+    /// The element `alpha * G` in `E::G1`.
     pub alpha_g1: E::G1Affine,
+    /// The element `beta * G` in `E::G1`.
     pub beta_g1: E::G1Affine,
+    /// The element `beta * H` in `E::G2`.
     pub beta_g2: E::G2Affine,
     /// The element `delta * G` in `E::G1`.
     pub delta_g1: E::G1Affine,
+    /// The element `delta * H` in `E::G2`.
     pub delta_g2: E::G2Affine,
     /// The element `eta*delta^-1 * G` in `E::G1`.
     pub eta_delta_inv_g1: E::G1Affine,
@@ -61,18 +74,24 @@ pub struct CCGroth16ProverKey<E: Pairing> {
     pub h_query: Vec<E::G1Affine>,
     /// The elements `l_i * G` in `E::G1`.
     pub l_query: Vec<E::G1Affine>,
-    /// The `gamma^{-1} * (beta * a_i + alpha * b_i + c_i) * H`, where `H` is
-    /// the generator of `E::G1`.
+    /// The elements `gamma^{-1} * (beta * a_i + alpha * b_i + c_i) * G` in
+    /// `E::G1` for the committed witness variables.
     pub gamma_abc_g1_cm: Vec<E::G1Affine>,
 }
 
+/// [`CCGroth16VerifierKey`] is the verifying key of the commit-carrying
+/// Groth16, where `G` and `H` are the generators of `E::G1` and `E::G2`.
 pub struct CCGroth16VerifierKey<E: Pairing> {
+    /// The element `alpha * G` in `E::G1` (used by the EVM verifier).
     #[cfg(feature = "evm")]
     pub alpha_g1: E::G1Affine,
+    /// The element `- beta * H` in `E::G2` (used by the EVM verifier).
     #[cfg(feature = "evm")]
     pub beta_g2_neg: E::G2Affine,
+    /// The element `- gamma * H` in `E::G2` (used by the EVM verifier).
     #[cfg(feature = "evm")]
     pub gamma_g2_neg: E::G2Affine,
+    /// The element `- delta * H` in `E::G2` (used by the EVM verifier).
     #[cfg(feature = "evm")]
     pub delta_g2_neg: E::G2Affine,
 
@@ -82,25 +101,36 @@ pub struct CCGroth16VerifierKey<E: Pairing> {
     pub gamma_g2_neg_pc: E::G2Prepared,
     /// The element `- delta * H` in `E::G2`, prepared for use in pairings.
     pub delta_g2_neg_pc: E::G2Prepared,
-    /// The `gamma^{-1} * (beta * a_i + alpha * b_i + c_i) * H`, where `H` is
-    /// the generator of `E::G1`.
+    /// The elements `gamma^{-1} * (beta * a_i + alpha * b_i + c_i) * G` in
+    /// `E::G1` for the instance variables (the constant `1` followed by the
+    /// public inputs).
     pub gamma_abc_g1_pub: Vec<E::G1Affine>,
 }
 
+/// [`ProverKey`] is the proving key of [`LegoGroth16`].
 pub struct ProverKey<E: Pairing> {
+    /// The R1CS of the relation.
     pub r1cs: R1CS<E::ScalarField>,
+    /// The indices (into the witness `w`) of the committed witness variables.
     pub committed_variable_indices: HashSet<usize, BuildHasherDefault<IdentityHasher>>,
+    /// The commit-carrying Groth16 proving key.
     pub cc_pk: CCGroth16ProverKey<E>,
+    /// The linear subspace SNARK proving key for the linking proof.
     pub link_ek: LinearSubspacePK<E>,
 }
 
+/// [`VerifierKey`] is the verifying key of [`LegoGroth16`].
 pub struct VerifierKey<E: Pairing> {
+    /// The commit-carrying Groth16 verifying key.
     pub cc_vk: CCGroth16VerifierKey<E>,
+    /// The linear subspace SNARK verifying key for the linking proof.
     pub link_vk: LinearSubspaceVK<E>,
 }
 
+/// [`Proof`] is a [`LegoGroth16`] proof.
 #[derive(Clone)]
 pub struct Proof<E: Pairing> {
+    /// The Groth16 proof elements `A`, `B` and `C`.
     pub groth16_proof: Groth16Proof<E>,
     /// The `D` element in `G1`. Commits to a subset of private inputs of the
     /// circuit
@@ -136,6 +166,12 @@ pub enum Error {
     VerificationFail,
 }
 
+/// [`LegoGroth16`] is the LegoGroth16 commit-and-prove SNARK for R1CS, with
+/// the external commitments being hiding Pedersen commitments.
+///
+/// The committed witness variables, in increasing index order, are split
+/// consecutively across the commitments according to the sizes of their
+/// commitment keys. `QAP` is the R1CS-to-QAP reduction.
 pub struct LegoGroth16<
     E: Pairing<G1: SonobeCurve, BaseField: SonobeField, ScalarField: SonobeField>,
     QAP: R1CSToQAP = LibsnarkReduction,

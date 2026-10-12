@@ -39,7 +39,11 @@ use crate::{
 /// scheme, where `H` controls whether the scheme is hiding or not.
 #[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct PedersenKey<C: SonobeCurve, const H: bool> {
+    /// [`PedersenKey::g`] is the vector of generators for the committed
+    /// values.
     pub g: Vec<C::Affine>,
+    /// [`PedersenKey::h`] is the generator for the randomness, which is the
+    /// identity point if the scheme is not hiding.
     pub h: C::Affine,
 }
 
@@ -103,6 +107,10 @@ pub struct PedersenEmulatedKeyVar<C: SonobeCurve, const H: bool> {
     h: EmulatedAffineVar<CF1<C>, C>,
 }
 
+/// [`PedersenFakeKeyVar`] is the "in-circuit variable" for [`PedersenKey`]
+/// used by [`PedersenCommitAndProveGadget`], which allocates nothing and just
+/// keeps the out-of-circuit key, as the commitment is checked by the
+/// commit-and-prove SNARK instead of in-circuit.
 pub struct PedersenFakeKeyVar<C: SonobeCurve, const H: bool>(PedersenKey<C, H>);
 
 impl<C: SonobeCurve, const H: bool> AllocVar<PedersenKey<C, H>, C::BaseField>
@@ -151,9 +159,9 @@ impl<C: SonobeCurve, const H: bool> AllocVar<PedersenKey<C, H>, CF1<C>>
     for PedersenFakeKeyVar<C, H>
 {
     fn new_variable<T: Borrow<PedersenKey<C, H>>>(
-        cs: impl Into<Namespace<CF1<C>>>,
+        _cs: impl Into<Namespace<CF1<C>>>,
         f: impl FnOnce() -> Result<T, SynthesisError>,
-        mode: AllocationMode,
+        _mode: AllocationMode,
     ) -> Result<Self, SynthesisError> {
         let v = f()?;
         Ok(PedersenFakeKeyVar(v.borrow().clone()))
@@ -362,6 +370,14 @@ impl<C: SonobeCurve> CommitmentDefGadget for PedersenEmulatedGadget<C, true> {
     type Widget = Pedersen<C, true>;
 }
 
+/// [`PedersenCommitAndProveGadget`] defines the in-circuit Pedersen gadget for
+/// commit-and-prove SNARKs, where `H` controls whether the scheme is hiding or
+/// not.
+///
+/// Instead of computing the commitment in-circuit, opening only records the
+/// committed variables, the commitment key and the randomness in the
+/// constraint system's cache, so that the commit-and-prove SNARK can link the
+/// commitment to these variables.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PedersenCommitAndProveGadget<C: SonobeCurve, const H: bool> {
     _c: PhantomData<C>,
@@ -397,10 +413,10 @@ impl<C: SonobeCurve> CommitmentDefGadget for PedersenCommitAndProveGadget<C, tru
 
 impl<C: SonobeCurve> CommitmentOpsGadget for PedersenCommitAndProveGadget<C, false> {
     fn open(
-        ck: &PedersenFakeKeyVar<C, false>,
-        v: &[FpVar<CF1<C>>],
+        _ck: &PedersenFakeKeyVar<C, false>,
+        _v: &[FpVar<CF1<C>>],
         _r: &Null,
-        cm: &EmulatedAffineVar<CF1<C>, C>,
+        _cm: &EmulatedAffineVar<CF1<C>, C>,
     ) -> Result<(), SynthesisError> {
         todo!()
     }
@@ -554,7 +570,10 @@ mod tests {
             let mut cs = ArithExtractor::<CF1<G1Projective>>::new();
             {
                 let mut cache = cs.cache_map.borrow_mut();
-                cache.insert(TypeId::of::<CommittedCache>(), Box::new(UsizeSet::default()));
+                cache.insert(
+                    TypeId::of::<CommittedCache>(),
+                    Box::new(UsizeSet::default()),
+                );
                 cache.insert(
                     TypeId::of::<CommitmentKeyCache>(),
                     Box::new(Vec::<PedersenKey<G1Projective, true>>::new()),
@@ -570,7 +589,9 @@ mod tests {
                     Ok(vec![CF1::<G1Projective>::rand(&mut thread_rng()); 2])
                 })?;
                 let r = FpVar::new_witness(cs.clone(), || Ok(CF1::<G1Projective>::from(1u64)))?;
-                let cm = AllocVar::new_witness(cs.clone(), || Ok(G1Projective::rand(&mut thread_rng())))?;
+                let cm = AllocVar::new_witness(cs.clone(), || {
+                    Ok(G1Projective::rand(&mut thread_rng()))
+                })?;
                 let (x, y) = if first_is_a { (&a, &b) } else { (&b, &a) };
                 for v in [x, y] {
                     PedersenCommitAndProveGadget::<G1Projective, true>::open(&ck, v, &r, &cm)?;

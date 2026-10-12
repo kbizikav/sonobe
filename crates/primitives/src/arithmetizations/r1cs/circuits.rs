@@ -61,6 +61,11 @@ impl<FVar: TwoStageFieldVar> AllocVar<R1CS<FVar::Value>, FVar::ConstraintField> 
 }
 
 impl<FVar: TwoStageFieldVar> R1CSVar<FVar> {
+    /// [`R1CSVar::evaluate_r1cs`] evaluates `Az ∘ Bz - uCz` at a given vector
+    /// of assignments `z`, where `u = z[0]`.
+    ///
+    /// This method is simply a wrapper of [`CCSGadget::evaluate_ccs`] with
+    /// fixed coefficients and multisets.
     pub fn evaluate_r1cs<A: Index<usize, Output = FVar>>(
         &self,
         z: A,
@@ -121,7 +126,7 @@ where
         _u: &RelaxedInstance<&[FVar]>,
         e: Self::Evaluation,
     ) -> Result<(), SynthesisError> {
-        e.enforce_equivalent(&w.e)
+        e.enforce_equivalent(w.e)
     }
 }
 

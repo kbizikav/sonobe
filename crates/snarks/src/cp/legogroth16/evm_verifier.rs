@@ -1,3 +1,6 @@
+//! Solidity verifier generation for [`LegoGroth16`](super::LegoGroth16) over
+//! BN254.
+
 use ark_bn254::Bn254;
 use ark_ec::AffineRepr;
 use askama::Template;
@@ -6,7 +9,10 @@ use crate::cp::legogroth16::VerifierKey;
 
 #[derive(Template)]
 #[template(path = "legogroth16.sol.askama")]
+/// [`LegoGroth16VerifierTemplate`] renders a Solidity contract verifying
+/// LegoGroth16 proofs under the given verifying key.
 pub struct LegoGroth16VerifierTemplate<'a> {
+    /// The LegoGroth16 verifying key hardcoded in the contract.
     pub vk: &'a VerifierKey<Bn254>,
 }
 

@@ -1,7 +1,9 @@
 //! This module defines extension traits for field elements and their in-circuit
 //! counterparts, along with some common implementations.
 
-use ark_ff::{BigInteger, Field, Fp, Fp2, Fp2Config, FpConfig, PrimeField};
+use ark_ff::{BigInteger, Field, Fp, FpConfig, PrimeField};
+#[cfg(feature = "evm")]
+use ark_ff::{Fp2, Fp2Config};
 use ark_r1cs_std::{
     GR1CSVar,
     alloc::AllocVar,
@@ -176,7 +178,9 @@ pub trait TwoStageFieldVar:
     + AllocVar<Self::Value, Self::ConstraintField>
 {
     // TODO: seems that using GR1CSVar's Value breaks the compiler...
+    /// The field of the values represented by the variable.
     type ValueField: Field;
+    /// The field over which the constraints are defined.
     type ConstraintField: Field;
 
     /// The intermediate variable type used during field operations.
@@ -203,7 +207,9 @@ pub trait TwoStageFieldVar:
         + Mul<Self, Output = Self::Intermediate>
         + for<'a> Mul<&'a Self, Output = Self::Intermediate>;
 
+    /// Returns the constant variable for zero.
     fn additive_identity() -> Self;
+    /// Returns the constant variable for one.
     fn multiplicative_identity() -> Self;
 }
 

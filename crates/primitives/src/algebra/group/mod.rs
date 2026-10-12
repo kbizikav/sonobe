@@ -1,9 +1,11 @@
 //! This module defines extension traits for elliptic curve points and their
 //! in-circuit counterparts, along with some common implementations.
 
+#[cfg(feature = "evm")]
+use ark_ec::short_weierstrass::Affine;
 use ark_ec::{
     AffineRepr, CurveGroup, PrimeGroup,
-    short_weierstrass::{Affine, Projective, SWCurveConfig},
+    short_weierstrass::{Projective, SWCurveConfig},
 };
 use ark_ff::{Field, One, PrimeField, Zero};
 use ark_r1cs_std::{
@@ -217,7 +219,11 @@ mod tests {
         assert!(satisfied_after_enforcing(Fq::zero(), Fq::one(), Fq::zero()));
         assert!(satisfied_after_enforcing(Fq::zero(), z, Fq::zero()));
         // the all-zero triple is not a point
-        assert!(!satisfied_after_enforcing(Fq::zero(), Fq::zero(), Fq::zero()));
+        assert!(!satisfied_after_enforcing(
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero()
+        ));
     }
 
     /// `(0, 0, 0)` passes the on-curve check of `ProjectiveVar`, which is why

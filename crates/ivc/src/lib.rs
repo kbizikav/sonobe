@@ -313,16 +313,28 @@ pub trait IVC: IVCTypes + IVCOps {}
 
 impl<I: IVCTypes + IVCOps> IVC for I {}
 
+/// [`IVCTypesGadget`] defines the associated types for the in-circuit
+/// counterpart of an IVC scheme.
 pub trait IVCTypesGadget {
+    /// [`IVCTypesGadget::Widget`] points to the out-of-circuit IVC scheme.
     type Widget: IVCTypes;
 
+    /// [`IVCTypesGadget::VerifierKey`] defines the in-circuit verifier key for
+    /// the step circuit `FC`.
     type VerifierKey<FC>;
 
+    /// [`IVCTypesGadget::ProofVar`] defines the in-circuit variable for the IVC
+    /// proof.
     type ProofVar;
 }
 
-/// [`IVCVerifier`] defines the proof verification algorithm of IVC.
+/// [`IVCVerifierGadget`] defines the in-circuit proof verification algorithm
+/// of IVC.
 pub trait IVCVerifierGadget: IVCTypesGadget {
+    /// [`IVCVerifierGadget::verify`] enforces that `proof` attests that
+    /// `current_state` is correctly derived from `initial_state` after `i`
+    /// executions of the step circuit, matching its out-of-circuit widget
+    /// [`IVCVerifier::verify`].
     fn verify<FC: FCircuit>(
         vk: &Self::VerifierKey<FC>,
         i: FpVar<FC::Field>,
@@ -384,9 +396,15 @@ pub trait IVCVerifierGadget: IVCTypesGadget {
 pub struct IVCStatefulProver<'a, FC: FCircuit<Field = I::Field>, I: IVC> {
     pk: &'a I::ProverKey<FC>,
     step_circuit: &'a FC,
+    /// [`IVCStatefulProver::i`] is the number of steps proven so far.
     pub i: usize,
+    /// [`IVCStatefulProver::initial_state`] is the initial state.
     pub initial_state: FC::State,
+    /// [`IVCStatefulProver::current_state`] is the state after `i` steps.
     pub current_state: FC::State,
+    /// [`IVCStatefulProver::current_proof`] is the proof attesting that
+    /// `current_state` is correctly derived from `initial_state` after `i`
+    /// executions of the step circuit.
     pub current_proof: I::Proof<FC>,
 }
 
@@ -433,6 +451,8 @@ impl<'a, FC: FCircuit<Field = I::Field>, I: IVC> IVCStatefulProver<'a, FC, I> {
     }
 }
 
+/// [`IVCProofCompressor`] defines a decider that compresses an IVC proof into
+/// a proof for the same statement that is cheaper to verify.
 pub trait IVCProofCompressor {
     /// [`IVCProofCompressor::IVC`] defines the underlying IVC scheme that the decider
     /// compiles.
@@ -442,16 +462,27 @@ pub trait IVCProofCompressor {
     type ProverKey<FC: FCircuit>;
     /// [`IVCProofCompressor::VerifierKey`] defines the verifier key type for the decider.
     type VerifierKey<FC: FCircuit>;
+    /// [`IVCProofCompressor::CompressedProof`] defines the compressed proof
+    /// type produced by the decider.
     type CompressedProof<FC: FCircuit>;
 
+    /// [`IVCProofCompressor::Error`] defines the error type of the decider.
     type Error: ErrorTrait + 'static;
 
+    /// [`IVCProofCompressor::preprocess_and_generate_keys`] is a randomized
+    /// algorithm that generates the decider's prover and verifier keys for the
+    /// step circuit `circuit`, given the IVC verifier key `ivc_vk` for it.
+    #[allow(clippy::type_complexity)]
     fn preprocess_and_generate_keys<FC: FCircuit<Field = <Self::IVC as IVCTypes>::Field>>(
         circuit: &FC,
         ivc_vk: <Self::IVC as IVCTypes>::VerifierKey<FC>,
         rng: impl RngCore,
     ) -> Result<(Self::ProverKey<FC>, Self::VerifierKey<FC>), Self::Error>;
 
+    /// [`IVCProofCompressor::prove`] compresses the IVC proof `proof`, which
+    /// attests that `current_state` is correctly derived from `initial_state`
+    /// after `i` executions of the step circuit, into a compressed proof for
+    /// the same statement.
     fn prove<FC: FCircuit<Field = <Self::IVC as IVCTypes>::Field>>(
         pk: &Self::ProverKey<FC>,
         i: usize,
@@ -461,6 +492,9 @@ pub trait IVCProofCompressor {
         rng: impl RngCore,
     ) -> Result<Self::CompressedProof<FC>, Self::Error>;
 
+    /// [`IVCProofCompressor::verify`] checks that `compressed_proof` attests
+    /// that `current_state` is correctly derived from `initial_state` after `i`
+    /// executions of the step circuit, returning an error if it does not.
     fn verify<FC: FCircuit<Field = <Self::IVC as IVCTypes>::Field>>(
         vk: &Self::VerifierKey<FC>,
         i: usize,
@@ -487,9 +521,9 @@ pub trait IVCProofCompressorEVMExt: IVCProofCompressor {
 
 #[cfg(test)]
 mod tests {
-    use ark_std::{error::Error, rand::Rng};
     #[cfg(feature = "evm")]
     use ark_ff::BigInteger;
+    use ark_std::{error::Error, rand::Rng};
     #[cfg(feature = "evm")]
     use sonobe_primitives::{
         algebra::field::SonobeField,
@@ -517,6 +551,7 @@ mod tests {
         }
     }
 
+    #[allow(clippy::type_complexity)]
     fn test_manual_state_management<I: IVC, F: FCircuit<Field = I::Field>>(
         pk: &I::ProverKey<F>,
         vk: &I::VerifierKey<F>,
@@ -550,6 +585,7 @@ mod tests {
         Ok((current_state, current_proof))
     }
 
+    #[allow(clippy::type_complexity)]
     fn test_auto_state_management<I: IVC, F: FCircuit<Field = I::Field>>(
         pk: &I::ProverKey<F>,
         vk: &I::VerifierKey<F>,
@@ -765,7 +801,7 @@ mod tests {
         let calldata = D::verify_calldata::<F>(&vk, n, &initial_state, &current_state, &proof)?;
         let result = evm.view(addr, sig, &calldata)?;
         assert!(result.is_success());
-        eprintln!("decider verify gas: {}", result.gas_used());
+        eprintln!("decider verify gas: {}", result.tx_gas_used());
 
         // Every word of the calldata is bound by the proof: the step count, the
         // states, the challenge, and the four points the contract folds. A

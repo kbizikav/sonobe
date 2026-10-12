@@ -1,3 +1,5 @@
+//! This module defines [`Dummy`] for constructing placeholder values.
+
 /// [`Dummy`] provides a way to construct a placeholder ("dummy") value of a
 /// given type, parameterized by some configuration `Cfg`.
 ///

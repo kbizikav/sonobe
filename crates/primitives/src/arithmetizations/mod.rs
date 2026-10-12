@@ -87,9 +87,15 @@ pub trait Arith: Clone + Default + Send + Sync + CanonicalSerialize + CanonicalD
     fn config(&self) -> ArithConfig;
 }
 
+/// [`ArithGadget`] is the in-circuit variable of a constraint system that
+/// implements [`Arith`].
 pub trait ArithGadget: AllocVar<Self::Widget, Self::ConstraintField> {
+    /// [`ArithGadget::ConstraintField`] is the field over which the in-circuit
+    /// constraints are defined.
     type ConstraintField: Field;
 
+    /// [`ArithGadget::Widget`] is the out-of-circuit constraint system that
+    /// this gadget represents.
     type Widget: Arith;
 }
 

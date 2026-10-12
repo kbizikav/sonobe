@@ -9,8 +9,11 @@ use ark_std::ops::Index;
 /// [`VectorMulGadget`] defines the multiplication (dot product) operation on
 /// in-circuit vector variables.
 pub trait VectorMulGadget<Other: ?Sized> {
+    /// [`VectorMulGadget::Output`] is the type of the dot product.
     type Output;
 
+    /// [`VectorMulGadget::mul`] computes the dot product of `self` and
+    /// `other`.
     fn mul(&self, other: &Other) -> Result<Self::Output, SynthesisError>;
 }
 

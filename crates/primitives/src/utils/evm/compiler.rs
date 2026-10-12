@@ -1,3 +1,6 @@
+//! This module provides a wrapper around the Solidity compiler for compiling
+//! verifier contracts.
+
 use ark_std::{
     io::{Error as IOError, Write},
     process::{Command, Stdio},

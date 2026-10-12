@@ -1,6 +1,9 @@
+//! This module defines [`EVMSerialize`] for encoding values as EVM calldata.
+
 /// [`EVMSerialize`] encodes a value as EVM calldata (the ABI byte encoding the
 /// on-chain verifier expects).
 pub trait EVMSerialize {
+    /// [`EVMSerialize::to_calldata`] returns the calldata encoding of `self`.
     fn to_calldata(&self) -> Vec<u8>;
 }
 

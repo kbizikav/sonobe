@@ -61,11 +61,19 @@ pub trait FoldingSchemeFullVerifierGadget<const M: usize, const N: usize>:
     ) -> Result<Self::RU, SynthesisError>;
 }
 
+/// [`FoldingSchemeDeciderGadget`] is the in-circuit counterpart of
+/// [`crate::FoldingSchemeDecider`].
+///
+/// It is implemented for every [`FoldingSchemeDefGadget`] whose decider key
+/// supports the relation checks.
 pub trait FoldingSchemeDeciderGadget:
     FoldingSchemeDefGadget<
     DeciderKey: RelationGadget<Self::RW, Self::RU> + RelationGadget<Self::IW, Self::IU>,
 >
 {
+    /// [`FoldingSchemeDeciderGadget::decide_running`] enforces that the
+    /// running witness `W` and running instance `U` satisfy the running
+    /// relation under the decider key `dk`.
     #[allow(non_snake_case)]
     fn decide_running(
         dk: &Self::DeciderKey,
@@ -75,6 +83,9 @@ pub trait FoldingSchemeDeciderGadget:
         RelationGadget::<Self::RW, Self::RU>::check_relation(dk, W, U)
     }
 
+    /// [`FoldingSchemeDeciderGadget::decide_incoming`] enforces that the
+    /// incoming witness `w` and incoming instance `u` satisfy the incoming
+    /// relation under the decider key `dk`.
     fn decide_incoming(
         dk: &Self::DeciderKey,
         w: &Self::IW,

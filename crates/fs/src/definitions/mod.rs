@@ -117,15 +117,21 @@ pub trait FoldingSchemeDefGadget {
 
     /// [`FoldingSchemeDefGadget::CM`] is the commitment scheme gadget.
     type CM: CommitmentDefGadget<Widget = <Self::Widget as FoldingSchemeDef>::CM>;
+    /// [`FoldingSchemeDefGadget::RW`] is the type of in-circuit running
+    /// witness variable.
     type RW: FoldingWitnessVar<Self::CM, Value = <Self::Widget as FoldingSchemeDef>::RW>;
     /// [`FoldingSchemeDefGadget::RU`] is the type of in-circuit running
     /// instance variable.
     type RU: FoldingInstanceVar<Self::CM, Value = <Self::Widget as FoldingSchemeDef>::RU>;
+    /// [`FoldingSchemeDefGadget::IW`] is the type of in-circuit incoming
+    /// witness variable.
     type IW: FoldingWitnessVar<Self::CM, Value = <Self::Widget as FoldingSchemeDef>::IW>;
     /// [`FoldingSchemeDefGadget::IU`] is the type of in-circuit incoming
     /// instance variable.
     type IU: FoldingInstanceVar<Self::CM, Value = <Self::Widget as FoldingSchemeDef>::IU>;
 
+    /// [`FoldingSchemeDefGadget::Arith`] is the type of in-circuit constraint
+    /// system variable.
     type Arith: AllocVar<
             <Self::Widget as FoldingSchemeDef>::Arith,
             <Self::CM as CommitmentDefGadget>::ConstraintField,
@@ -134,6 +140,8 @@ pub trait FoldingSchemeDefGadget {
     /// [`FoldingSchemeDefGadget::VerifierKey`] is the type of in-circuit
     /// verifier key variable.
     type VerifierKey;
+    /// [`FoldingSchemeDefGadget::DeciderKey`] is the type of in-circuit
+    /// decider key variable.
     type DeciderKey: AllocVar<
             <Self::Widget as FoldingSchemeDef>::DeciderKey,
             <Self::CM as CommitmentDefGadget>::ConstraintField,

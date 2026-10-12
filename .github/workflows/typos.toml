@@ -1,3 +1,9 @@
 [default.extend-words]
 groth = "groth"
 mimc = "mimc"
+# Lean hypothesis/binder names
+hae = "hae"
+hsa = "hsa"
+clen = "clen"
+tre = "tre"
+ue = "ue"

@@ -1,22 +1,42 @@
+//! Implementation of the linear subspace SNARK (the Kiltz-Wee QA-NIZK as used
+//! in [LegoSNARK](https://eprint.iacr.org/2019/142)).
+//!
+//! Given a matrix `M` over `G1` with `n_rows` rows, it proves that a vector
+//! `x` of `n_rows` elements in `G1` lies in the column span of `M`, i.e., that
+//! the prover knows `w` such that `x = M w`.
+
 use ark_ec::{CurveGroup, ScalarMul, VariableBaseMSM, pairing::Pairing};
 use ark_ff::{PrimeField, UniformRand, Zero};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::rand::Rng;
 
 #[derive(Clone, Default, PartialEq, Debug, CanonicalSerialize, CanonicalDeserialize)]
+/// [`ProverKey`] is the proving key of [`LinearSubspaceSNARK`].
 pub struct ProverKey<E: Pairing> {
+    /// The elements `k^T M` in `E::G1`, where `k` is the secret vector sampled
+    /// at key generation.
     pub p: Vec<E::G1Affine>,
 }
 
 #[derive(Clone, Default, PartialEq, Debug, CanonicalSerialize, CanonicalDeserialize)]
+/// [`VerifierKey`] is the verifying key of [`LinearSubspaceSNARK`].
 pub struct VerifierKey<E: Pairing> {
+    /// The elements `k_i * A` in `E::G2`, one per row of `M`.
     pub c: Vec<E::G2Affine>,
+    /// The element `- A` in `E::G2`.
     pub a_neg: E::G2Affine,
 }
 
+/// [`LinearSubspaceSNARK`] proves that a vector over `G1` lies in the column
+/// span of a fixed matrix `M` over `G1`.
 pub struct LinearSubspaceSNARK {}
 
 impl LinearSubspaceSNARK {
+    /// [`LinearSubspaceSNARK::generate_keys`] generates the proving and
+    /// verifying keys for a matrix `M` with `n_rows` rows.
+    ///
+    /// `M` is given implicitly by `mvm`, which maps a vector `k` of `n_rows`
+    /// scalars to the vector-matrix product `k^T M` in `E::G1`.
     pub fn generate_keys<E: Pairing>(
         n_rows: usize,
         mvm: impl Fn(Vec<E::ScalarField>) -> Vec<E::G1>,
@@ -39,6 +59,10 @@ impl LinearSubspaceSNARK {
         )
     }
 
+    /// [`LinearSubspaceSNARK::prove`] computes the proof `<k^T M, w>` for the
+    /// statement `x = M w`.
+    ///
+    /// Panics if the length of `w` differs from the number of columns of `M`.
     pub fn prove<E: Pairing>(
         ek: &ProverKey<E>,
         w: &[<E::ScalarField as PrimeField>::BigInt],
@@ -47,6 +71,10 @@ impl LinearSubspaceSNARK {
         E::G1::msm_bigint(&ek.p, w).into_affine()
     }
 
+    /// [`LinearSubspaceSNARK::verify`] checks the proof `pi` that `x` lies in
+    /// the column span of `M`.
+    ///
+    /// Panics if the length of `x` differs from the number of rows of `M`.
     pub fn verify<E: Pairing>(vk: &VerifierKey<E>, x: &[E::G1Affine], pi: &E::G1Affine) -> bool {
         // `E::multi_pairing` internally uses `zip_eq`
         E::multi_pairing([x, &[*pi][..]].concat(), [&vk.c, &[vk.a_neg][..]].concat()).is_zero()

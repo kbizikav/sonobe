@@ -64,7 +64,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Install wasm-bindgen-cli
         if: matrix.target == 'wasm32-unknown-unknown'
-        run: cargo install wasm-bindgen-cli
+        # The CLI must match the wasm-bindgen version in Cargo.lock exactly.
+        run: cargo install wasm-bindgen-cli --version "$(cargo pkgid wasm-bindgen | sed 's/.*@//')"
       - name: Install wasmtime-cli
         if: matrix.target == 'wasm32-wasip2'
         run: cargo install wasmtime-cli

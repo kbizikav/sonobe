@@ -271,13 +271,25 @@ impl<F: SonobeField, Cfg, const ALIGNED: bool> LimbedVar<F, Cfg, ALIGNED> {
     }
 }
 
+/// [`RangeCheckMode`] specifies how [`LimbedVar::alloc`] range-checks the
+/// allocated value against the given [`Bounds`].
 #[derive(PartialEq)]
 pub enum RangeCheckMode {
+    /// Only enforce the bit-length of every limb, so the magnitude of the
+    /// value is only bounded by the number of limbs, and the bounds of the
+    /// resulting variable are widened accordingly.
     Loose,
+    /// Enforce that the value lies within the given bounds.
     Tight,
 }
 
 impl<F: SonobeField, Cfg> LimbedVar<F, Cfg, true> {
+    /// [`LimbedVar::alloc`] allocates a `LimbedVar` for the value and
+    /// [`Bounds`] returned by `f`, range-checked according to
+    /// `range_check_mode`.
+    ///
+    /// It returns [`SynthesisError::Unsatisfiable`] if the value is outside
+    /// the bounds.
     pub fn alloc<T: Borrow<(BigInt, Bounds)>>(
         cs: impl Into<Namespace<F>>,
         f: impl FnOnce() -> Result<T, SynthesisError>,
@@ -1454,10 +1466,12 @@ mod tests {
             vec![
                 Bounds(
                     BigInt::zero(),
-                    (BigInt::from_biguint(Sign::Plus, Fr::MODULUS_MINUS_ONE_DIV_TWO.into()) >> 2usize),
+                    BigInt::from_biguint(Sign::Plus, Fr::MODULUS_MINUS_ONE_DIV_TWO.into())
+                        >> 2usize,
                 ),
                 Bounds(
-                    -(BigInt::from_biguint(Sign::Plus, Fr::MODULUS_MINUS_ONE_DIV_TWO.into()) >> 2usize),
+                    -(BigInt::from_biguint(Sign::Plus, Fr::MODULUS_MINUS_ONE_DIV_TWO.into())
+                        >> 2usize),
                     BigInt::zero(),
                 ),
             ],

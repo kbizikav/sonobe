@@ -1,3 +1,5 @@
+//! This module provides an in-memory EVM for testing verifier contracts.
+
 use ark_std::convert::Infallible;
 use revm::{
     ExecuteCommitEvm, ExecuteEvm, MainBuilder, MainContext, MainnetEvm,

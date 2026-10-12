@@ -477,6 +477,12 @@ where
     }
 }
 
+/// [`CycleFoldBasedIVCDecider`] is the decider for [`CycleFoldBasedIVC`].
+///
+/// It folds the running and incoming instances of `FS1` in the IVC proof, and
+/// proves with the CP-SNARK `S` that the folded running instance and the
+/// running CycleFold instance of `FS2` are satisfied (see
+/// [`CycleFoldBasedIVCDeciderCircuit`]).
 pub struct CycleFoldBasedIVCDecider<FS1, FS2, T, S> {
     _p: PhantomData<(FS1, FS2, T, S)>,
 }
@@ -608,6 +614,7 @@ impl<
         Ok(((pk, ivc_vk), vk))
     }
 
+    #[allow(non_snake_case)]
     fn prove<FC: FCircuit<Field = <Self::IVC as IVCTypes>::Field>>(
         (pk, ivc_vk): &Self::ProverKey<FC>,
         i: usize,
@@ -676,6 +683,7 @@ impl<
         ))
     }
 
+    #[allow(non_snake_case)]
     fn verify<FC: FCircuit<Field = <Self::IVC as IVCTypes>::Field>>(
         (vk, folding_vk, hash_config, pp_hash, reference_state): &Self::VerifierKey<FC>,
         i: usize,
@@ -723,8 +731,14 @@ impl<
             FC::StateVar::inputize(initial_state),
             FC::StateVar::inputize(current_state),
             challenges.clone(),
-            points.iter().flat_map(CmVar::<FS1::Gadget>::inputize).collect::<Vec<_>>(),
-            commitments.iter().flat_map(CmVar::<FS1::Gadget>::inputize).collect::<Vec<_>>(),
+            points
+                .iter()
+                .flat_map(CmVar::<FS1::Gadget>::inputize)
+                .collect::<Vec<_>>(),
+            commitments
+                .iter()
+                .flat_map(CmVar::<FS1::Gadget>::inputize)
+                .collect::<Vec<_>>(),
         ]
         .concat();
         let c = CurveGroup::normalize_batch(&commitments);
@@ -777,6 +791,7 @@ impl<
         >,
 > IVCProofCompressorEVMExt for CycleFoldBasedIVCDecider<FS1, FS2, T, S>
 {
+    #[allow(non_snake_case)]
     fn verify_calldata<FC: FCircuit<Field = <Self::IVC as IVCTypes>::Field>>(
         (_vk, _folding_vk, _hash_config, _pp_hash, _reference_state): &Self::VerifierKey<FC>,
         i: usize,
@@ -796,6 +811,15 @@ impl<
     }
 }
 
+/// [`CycleFoldBasedIVCDeciderCircuit`] is the circuit proven by
+/// [`CycleFoldBasedIVCDecider`].
+///
+/// It folds the running instance `U` and the incoming instance `u` of `FS1`
+/// into `UU` with the folding `proof`, checks that `WW` satisfies `UU` and that
+/// `cf_W` satisfies the running CycleFold instance `cf_U`, and checks that the
+/// public input of `u` is the hash of `i`, the initial and current states, `U`
+/// and `cf_U`.
+#[allow(non_snake_case, clippy::type_complexity)]
 pub struct CycleFoldBasedIVCDeciderCircuit<
     'a,
     FS1: FoldingSchemeDef,
@@ -844,6 +868,7 @@ impl<
     FC: FCircuit<Field = CF1<<FS1::CM as CommitmentDef>::Commitment>>,
 > ConstraintSynthesizer<FC::Field> for CycleFoldBasedIVCDeciderCircuit<'a, FS1, FS2, T, FC>
 {
+    #[allow(non_snake_case)]
     fn generate_constraints(
         self,
         cs: ConstraintSystemRef<FC::Field>,
