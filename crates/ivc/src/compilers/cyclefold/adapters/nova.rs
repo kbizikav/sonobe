@@ -300,6 +300,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(target_arch = "wasm32", ignore = "needs ~11 GB of memory")]
     fn test_nova_nova_decider() -> Result<(), Box<dyn Error>> {
         let mut rng = thread_rng();
 
@@ -325,6 +326,7 @@ mod tests {
     /// proof with the circuit's own challenge. These points and the challenge
     /// are public inputs, so changing any of them must be rejected.
     #[test]
+    #[cfg_attr(target_arch = "wasm32", ignore = "needs ~11 GB of memory")]
     fn test_nova_nova_decider_rejects_tampering() -> Result<(), Box<dyn Error>> {
         use ark_ec::CurveGroup;
 
@@ -371,6 +373,7 @@ mod tests {
 
     #[cfg(feature = "evm")]
     #[test]
+    #[cfg_attr(target_arch = "wasm32", ignore = "needs ~11 GB of memory")]
     fn test_nova_nova_decider_evm() -> Result<(), Box<dyn Error>> {
         let mut rng = thread_rng();
 

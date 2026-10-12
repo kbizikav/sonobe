@@ -74,6 +74,9 @@ jobs:
       - name: Test sonobe-fs
         run: cargo test --release -p sonobe-fs --target ${{ matrix.target }} ${{ matrix.args }}
       - name: Test sonobe-ivc
+        # Each decider test peaks at ~11 GB; running them concurrently OOMs the runner.
+        env:
+          RUST_TEST_THREADS: 1
         run: cargo test --release -p sonobe-ivc --target ${{ matrix.target }} ${{ matrix.args }}
       - name: Test documentation examples
         run: cargo test --doc --target ${{ matrix.target }} ${{ matrix.args }}
