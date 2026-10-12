@@ -69,6 +69,13 @@ jobs:
       - name: Install wasmtime-cli
         if: matrix.target == 'wasm32-wasip2'
         run: cargo install wasmtime-cli
+      - name: Install solc
+        # The EVM decider test compiles the generated verifier (pragma ^0.8.35).
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: |
+          sudo curl -fsSL -o /usr/local/bin/solc https://github.com/ethereum/solidity/releases/download/v0.8.36/solc-static-linux
+          sudo chmod +x /usr/local/bin/solc
+          solc --version
       - name: Test sonobe-primitives
         run: cargo test --release -p sonobe-primitives --target ${{ matrix.target }} ${{ matrix.args }}
       - name: Test sonobe-fs
