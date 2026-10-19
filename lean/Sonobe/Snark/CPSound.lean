@@ -4,8 +4,8 @@ import Sonobe.Commitment.Pedersen
 
 /-!
 The LegoGroth16 verifier (`crates/snarks/src/cp/legogroth16/mod.rs:514-547`) as a predicate over
-abstract bilinear groups, and its **knowledge soundness** — the single cryptographic assumption on
-the CP-SNARK. Unlike the earlier `cpSound` it says nothing about the decider circuit: acceptance
+abstract bilinear groups, and its **knowledge soundness at one call** (`ExtractsAt`) — the single
+cryptographic assumption on the CP-SNARK. It says nothing about the decider circuit: acceptance
 yields a satisfying assignment of the *R1CS the keys were generated for*, whose committed
 variables open the public commitments.
 -/
@@ -47,18 +47,27 @@ def Accepts (e : G₁ →ₗ[F] G₂ →ₗ[F] G_T) (vk : VK G₁ G₂ l nc) (x 
     ∑ j : Fin nc, e (c j) (vk.linkC j.castSucc) + e π.D (vk.linkC (Fin.last nc)) +
       e π.pi vk.linkANeg = 0
 
-/-- **Knowledge soundness of LegoGroth16** for an R1CS `R` (public inputs `x`) whose committed
-witness variables are `blocks w = (e, w')` and whose two commitments use the Pedersen keys `ckE`,
-`ckW` (the CP-SNARK's `link` with hidden `o`): an accepted proof yields a satisfying witness whose
-committed blocks open the commitments. This is the *only* cryptographic assumption on the CP-SNARK
-(it is what the extractor of the proof-of-knowledge theorem provides). -/
-def CPKnowledgeSound {m l' nw m1 nw1 : ℕ}
+/-- **Knowledge soundness of LegoGroth16 at one call**, for an R1CS `R` (public inputs `x`) whose
+committed witness variables are `blocks w = (e, w')` and whose two commitments use the Pedersen keys
+`ckE`, `ckW` (the CP-SNARK's `link` with hidden `o`): if the verifier accepts `(x, c, π)`, the
+extractor's output `(w, o)` is a satisfying witness whose committed blocks open `c`. This is the
+*only* assumption on the CP-SNARK. -/
+def ExtractsAt {m l' nw m1 nw1 : ℕ}
     (e : G₁ →ₗ[F] G₂ →ₗ[F] G_T) (vk : VK G₁ G₂ l' 2) (R : R1CS F m l' nw)
     (blocks : (Fin nw → F) → (Fin m1 → F) × (Fin nw1 → F))
-    (ckE : PedersenKey F G₁ m1) (ckW : PedersenKey F G₁ nw1) : Prop :=
-  ∀ (x : Fin l' → F) (c : Fin 2 → G₁) (π : Proof G₁ G₂), Accepts e vk x c π →
-    ∃ (w : Fin nw → F) (o : Fin 2 → F), R.Sat x w ∧
-      c 0 = ckE.commit (blocks w).1 (o 0) ∧ c 1 = ckW.commit (blocks w).2 (o 1)
+    (ckE : PedersenKey F G₁ m1) (ckW : PedersenKey F G₁ nw1) (x : Fin l' → F) (c : Fin 2 → G₁)
+    (π : Proof G₁ G₂) (w : Fin nw → F) (o : Fin 2 → F) : Prop :=
+  Accepts e vk x c π → R.Sat x w ∧ c 0 = ckE.commit (blocks w).1 (o 0) ∧
+    c 1 = ckW.commit (blocks w).2 (o 1)
+
+/-- An honest call meets `ExtractsAt`: its witness is valid whatever the verifier does. -/
+theorem ExtractsAt.of_valid {m l' nw m1 nw1 : ℕ}
+    {e : G₁ →ₗ[F] G₂ →ₗ[F] G_T} {vk : VK G₁ G₂ l' 2} {R : R1CS F m l' nw}
+    {blocks : (Fin nw → F) → (Fin m1 → F) × (Fin nw1 → F)}
+    {ckE : PedersenKey F G₁ m1} {ckW : PedersenKey F G₁ nw1} {x : Fin l' → F} {c : Fin 2 → G₁}
+    {π : Proof G₁ G₂} {w : Fin nw → F} {o : Fin 2 → F}
+    (h : R.Sat x w ∧ c 0 = ckE.commit (blocks w).1 (o 0) ∧ c 1 = ckW.commit (blocks w).2 (o 1)) :
+    ExtractsAt e vk R blocks ckE ckW x c π w o := fun _ => h
 
 end LegoGroth16
 end Sonobe

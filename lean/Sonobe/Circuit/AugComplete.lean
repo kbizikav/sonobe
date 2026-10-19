@@ -155,8 +155,8 @@ variable {p1 p2 sN : ℕ} [Fact p1.Prime] [Fact p2.Prime]
   (W1 : WeierstrassCurve (ZMod p2)) [Short W1] [W1.IsElliptic]
   (W2 : WeierstrassCurve (ZMod p1)) [Short W2] [W2.IsElliptic]
   (EA : EmuArith p1 p2) (sp : SpongeCfg (ZMod p1)) (dS dT : List (ZMod p1))
-  (pm1 : ℕ → Bool) (G : ZMod p1 × ZMod p1)
-  (StepRel : (Fin sN → ZMod p1) → (Fin sN → ZMod p1) → Prop)
+  (pm1 : ℕ → Bool) (G : ZMod p1 × ZMod p1) {SW : Type*}
+  (StepRel : (Fin sN → ZMod p1) → SW → (Fin sN → ZMod p1) → Prop)
   [Module (ZMod p1) W1.toAffine.Point] [Module (ZMod p2) W2.toAffine.Point]
 
 /-- **An honest assignment of the augmented circuit exists**, and its public output is
@@ -166,15 +166,15 @@ theorem aug_witness
       (ZMod p2 × ZMod p2) 7)
     (hco : T.coords = coordsOf W1) (hhs : T.hs = hsC W2 sp dS) (hch : T.ch1n = ch1nC sp dT)
     (hch2a : T.ch2an = ch2anC W2 sp dT) (hch2b : T.ch2bn = ch2bnC W2 sp dT)
-    (hcfx : ∀ n c0 c1 c2, T.cfX n c0 c1 c2 = cfVec n c0 c1 c2)
-    (hstepc : ∀ z, StepRel z (T.step z)) (hEA : EA.Complete)
+    (hcfx : ∀ n c0 c1 c2, T.cfX n c0 c1 c2 = cfVec n c0 c1 c2) (hEA : EA.Complete)
     (hsmul2 : ∀ (n : ℕ) (P : W2.toAffine.Point), (n : ZMod p2) • P = n • P)
     (h2 : (2 : ZMod p1) ≠ 0) (hnr : ∀ e : ZMod p1, e ^ 3 + W2.a₄ * e + W2.a₆ ≠ 0) {r : ℕ}
     (hord : ∀ P : W2.toAffine.Point, P ≠ 0 → addOrderOf P = r) (hrn : 2 ^ 128 < r)
     (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8)) (hp2' : 2 ^ 128 ≤ p2)
     (hp1b : p1 ≤ 2 ^ 254) (hp2b : p2 ≤ 2 ^ 254)
     (hG : W2.toAffine.Equation G.1 G.2) (hpm : natVal 254 pm1 = p1 - 1)
-    (i : ℕ) (z0 zi : Fin sN → ZMod p1) (U : RunningInstance (ZMod p1) W1.toAffine.Point 1)
+    (i : ℕ) (z0 zi nx : Fin sN → ZMod p1) (stw : SW) (hR : StepRel zi stw nx)
+    (U : RunningInstance (ZMod p1) W1.toAffine.Point 1)
     (u : IncomingInstance W1.toAffine.Point (ZMod p1) 1) (π : W1.toAffine.Point)
     (cfU : RunningInstance (ZMod p2) W2.toAffine.Point 7)
     (cu0 cu1 : IncomingInstance W2.toAffine.Point (ZMod p2) 7) (cπ0 cπ1 : W2.toAffine.Point)
@@ -185,7 +185,7 @@ theorem aug_witness
     (hx1 : cu1.x = T.cfX (T.ch1n T.pph (T.rawOf U) (T.rawOfI u) (T.coords π)) (T.coords U.cmW)
       (T.coords u.cmW) (T.coords (T.fold1 U u π).cmW)) :
     ∃ (v : AugVars p1 sN) (uux : ZMod p1), AugRel W2 EA sp dS dT pm1 G StepRel v uux ∧
-      uux = T.augOut i z0 zi U u π cfU cu0 cu1 cπ0 cπ1 := by
+      uux = T.augOut i z0 nx U u π cfU cu0 cu1 cπ0 cπ1 := by
   have h32 : 2 ^ 32 ≤ p1 := le_trans (Nat.le_add_right _ _) hp.le
   have h32' : 2 ^ 32 < p1 := lt_of_lt_of_le (by omega : 2 ^ 32 < 2 ^ 32 + 2 ^ 33) hp.le
   have hp2e : p2 ≤ 2 ^ (32 * 8) := hp2.le
@@ -312,8 +312,7 @@ theorem aug_witness
     · exact cO2u
     · exact cO2x j
   have hsecO2 : secOf o2a O2.cmE O2.cmW = O2 := secOf_cons O2
-  -- the next state and the output hash
-  set nx : Fin sN → ZMod p1 := T.step zi with hnx
+  -- the output hash
   obtain ⟨awN, aoN, hN⟩ := absFam_exists (p2 := p2) h32 hp2b
     (a := fun k : Fin 4 => selLimbs bc (pa (Fin.natAdd 8 k)))
     (fun k => canon_selLimbs hp2pos hbc01 (hpa_canon _))
@@ -341,7 +340,7 @@ theorem aug_witness
       noM := ![nM0, nM1] }
   have hrel : AugRel W2 EA sp dS dT pm1 G StepRel v uux := by
     refine ⟨hzr, hcond, hpw, hsw, hvE, hvW, hU, hS, hnE, hnW, rfl, hT, rfl, hcb, hv0, hv1,
-      hvp0.1, hvp1.1, ?_, ?_, hstepc zi, hN, hM, hnM0, hnM1, rfl, ?_⟩
+      hvp0.1, hvp1.1, ?_, ?_, ⟨stw, hR⟩, hN, hM, hnM0, hnM1, rfl, ?_⟩
     · rw [hsecO1] at hO2
       exact hO1
     · rw [hsecO2]; exact hO2
@@ -546,8 +545,7 @@ theorem augComplete_of_circuit
       (ZMod p2 × ZMod p2) 7)
     (hco : T.coords = coordsOf W1) (hhs : T.hs = hsC W2 sp dS) (hch : T.ch1n = ch1nC sp dT)
     (hch2a : T.ch2an = ch2anC W2 sp dT) (hch2b : T.ch2bn = ch2bnC W2 sp dT)
-    (hcfx : ∀ n c0 c1 c2, T.cfX n c0 c1 c2 = cfVec n c0 c1 c2)
-    (hstepc : ∀ z, StepRel z (T.step z)) (hEA : EA.Complete)
+    (hcfx : ∀ n c0 c1 c2, T.cfX n c0 c1 c2 = cfVec n c0 c1 c2) (hEA : EA.Complete)
     (hsmul2 : ∀ (n : ℕ) (P : W2.toAffine.Point), (n : ZMod p2) • P = n • P)
     (hcompl : ∀ (x : Fin 1 → ZMod p1) (ω : AugVars p1 sN),
       AugRel W2 EA sp dS dT pm1 G StepRel ω (x 0) → ∃ w, T.k1.r1cs.Sat x w)
@@ -556,10 +554,10 @@ theorem augComplete_of_circuit
     (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8)) (hp2' : 2 ^ 128 ≤ p2)
     (hp1b : p1 ≤ 2 ^ 254) (hp2b : p2 ≤ 2 ^ 254)
     (hG : W2.toAffine.Equation G.1 G.2) (hpm : natVal 254 pm1 = p1 - 1) :
-    T.AugComplete := by
-  intro i z0 zi U u π cfU cu0 cu1 cπ0 cπ1 hcast hi0 hux hx0 hx1
+    T.AugComplete StepRel := by
+  intro i z0 zi nx stw U u π cfU cu0 cu1 cπ0 cπ1 hR hcast hi0 hux hx0 hx1
   obtain ⟨v, uux, hrel, huux⟩ := aug_witness W1 W2 EA sp dS dT pm1 G StepRel T hco hhs hch hch2a
-    hch2b hcfx hstepc hEA hsmul2 h2 hnr hord hrn hp hp2 hp2' hp1b hp2b hG hpm i z0 zi U u π cfU
+    hch2b hcfx hEA hsmul2 h2 hnr hord hrn hp hp2 hp2' hp1b hp2b hG hpm i z0 zi nx stw hR U u π cfU
     cu0 cu1 cπ0 cπ1 hcast hi0 hux hx0 hx1
   obtain ⟨w, hw⟩ := hcompl (fun _ => uux) v hrel
   exact ⟨⟨w, 0⟩, ⟨T.k1.ckW.commit w 0, fun _ => uux⟩, ⟨hw, rfl⟩, by rw [huux]⟩

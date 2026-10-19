@@ -54,7 +54,6 @@ structure Setup (F1 G1 F2 G2 S C1 : Type*) (l2 : ℕ) [Field F1] [AddCommGroup G
   nw2 : ℕ
   k1 : Key F1 G1 m1 1 nw1
   k2 : Key F2 G2 m2 l2 nw2
-  step : S → S
   /-- coordinates of a primary commitment (identity ↦ `(0,0)`) -/
   coords : G1 → C1
   coords_inj : Function.Injective coords
@@ -91,6 +90,47 @@ def Setup.rawOfI (u : IncomingInstance G1 F1 1) : RawIU F1 C1 := ⟨T.coords u.c
 def Setup.fold1 (U : RunningInstance F1 G1 1) (u : IncomingInstance G1 F1 1) (π : G1) :
     RunningInstance F1 G1 1 :=
   foldInstance (T.ch1 T.pph (T.rawOf U) (T.rawOfI u) (T.coords π)) π U u
+
+open Classical in
+/-- The point with coordinates `c` (`0` if there is none); it is unique, as `coords` is
+injective. -/
+noncomputable def Setup.pt (c : C1) : G1 := if h : ∃ P, T.coords P = c then h.choose else 0
+
+theorem Setup.pt_coords (P : G1) : T.pt (T.coords P) = P := by
+  have h : ∃ Q, T.coords Q = T.coords P := ⟨P, rfl⟩
+  simp only [Setup.pt, dif_pos h]
+  exact T.coords_inj h.choose_spec
+
+theorem Setup.coords_pt {c : C1} (h : ∃ P, T.coords P = c) : T.coords (T.pt c) = c := by
+  obtain ⟨P, rfl⟩ := h
+  rw [T.pt_coords]
+
+/-! ### Step chains -/
+
+/-- `Chain R z ws z'`: `z'` is reached from `z` by one step `R zᵢ wᵢ zᵢ₊₁` per witness of `ws`, in
+order. The step relation is the step circuit's constraints, with `w` its wires. -/
+inductive Chain {S W : Type*} (R : S → W → S → Prop) : S → List W → S → Prop
+  | nil (z : S) : Chain R z [] z
+  | cons {z z' z'' : S} {w : W} {ws : List W} : R z w z' → Chain R z' ws z'' →
+      Chain R z (w :: ws) z''
+
+theorem Chain.snoc {S W : Type*} {R : S → W → S → Prop} {z z' z'' : S} {ws : List W} {w : W}
+    (h : Chain R z ws z') (hw : R z' w z'') : Chain R z (ws ++ [w]) z'' := by
+  induction h with
+  | nil z => exact Chain.cons hw (Chain.nil _)
+  | cons hs _ ih => exact Chain.cons hs (ih hw)
+
+theorem Chain.of_snoc {S W : Type*} {R : S → W → S → Prop} {z z'' : S} {ws : List W} {w : W}
+    (h : Chain R z (ws ++ [w]) z'') : ∃ z', Chain R z ws z' ∧ R z' w z'' := by
+  induction ws generalizing z with
+  | nil =>
+    cases h with
+    | cons hw hc => cases hc; exact ⟨z, Chain.nil _, hw⟩
+  | cons v vs ih =>
+    cases h with
+    | cons hv hc =>
+      obtain ⟨z', hc', hw⟩ := ih hc
+      exact ⟨z', Chain.cons hv hc', hw⟩
 
 end IVC
 end Sonobe

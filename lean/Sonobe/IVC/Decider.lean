@@ -18,36 +18,66 @@ open Nova
 variable {F1 G1 F2 G2 S C1 : Type*} [Field F1] [AddCommGroup G1] [Module F1 G1]
   [Field F2] [AddCommGroup G2] [Module F2 G2] {l2 : ℕ} (T : Setup F1 G1 F2 G2 S C1 l2)
 
+/-- The values of the decider circuit's witness that its relation speaks about: the instances
+`U`, `u`, the cross-term commitment `π`, the folded witness `WW`, and the secondary pair. -/
+structure Setup.DecOut where
+  U : RunningInstance F1 G1 1
+  u : IncomingInstance G1 F1 1
+  π : G1
+  WW : RunningWitness F1 T.m1 T.nw1
+  cfU : RunningInstance F2 G2 l2
+  cfW : RunningWitness F2 T.m2 T.nw2
+
 /-- The relation proved by the decider circuit, for `n ≥ 1` steps. -/
-def Setup.DeciderRel (n : ℕ) (z0 zn : S) : Prop :=
-  n ≠ 0 ∧ ∃ (U : RunningInstance F1 G1 1) (u : IncomingInstance G1 F1 1) (π : G1)
-    (WW : RunningWitness F1 T.m1 T.nw1) (cfU : RunningInstance F2 G2 l2)
-    (cfW : RunningWitness F2 T.m2 T.nw2),
-    u.x = (fun _ => T.hs T.pph (n : F1) z0 zn (T.rawOf U) cfU) ∧
-      T.k1.Running (T.fold1 U u π) WW ∧ T.k2.Running cfU cfW
+def Setup.DeciderRel (n : ℕ) (z0 zn : S) (D : T.DecOut) : Prop :=
+  n ≠ 0 ∧ D.u.x = (fun _ => T.hs T.pph (n : F1) z0 zn (T.rawOf D.U) D.cfU) ∧
+    T.k1.Running (T.fold1 D.U D.u D.π) D.WW ∧ T.k2.Running D.cfU D.cfW
+
+/-- The challenge of the decider's fold. -/
+def Setup.decCh (D : T.DecOut) : F1 := T.ch1 T.pph (T.rawOf D.U) (T.rawOfI D.u) (T.coords D.π)
+
+/-- The IVC proof the decider's fold extracts to, from a rewinding `r` of that fold. -/
+def Setup.decProof (D : T.DecOut) (r : Rewind F1 T.m1 T.nw1) : Proof T :=
+  ⟨(r.extract (T.decCh D) D.WW).1, D.U, (r.extract (T.decCh D) D.WW).2, D.u, D.cfW, D.cfU⟩
+
+/-- The extraction data behind an accepted decider proof: the rewinding of the decider's fold, and
+the rewindings of every step's folds (from the last step back). -/
+structure Setup.Extraction where
+  top : Rewind F1 T.m1 T.nw1
+  steps : List T.StepData
+
+variable (dec : (Fin T.nw1 → F1) → AugOut F1 F2 G2 S C1 l2)
+
+/-- **The run's hypotheses for a decider proof**: every rewinding in `E` is accepting and breaks
+no binding, and the hash does not collide at any step (`RunOK`). -/
+def Setup.ExtractionOK (n : ℕ) (z0 zn : S) (D : T.DecOut) (E : T.Extraction) : Prop :=
+  E.top.Accepts T.k1 D.U D.u D.π (T.decCh D) ∧ E.top.Binds T.k1 (T.decCh D) D.WW ∧
+    T.RunOK dec z0 n zn (T.decProof D E.top) E.steps
 
 /-- **Decider completeness (relation level).** -/
 theorem decider_rel_complete {n : ℕ} {z0 zn : S} {P : Proof T} (hP : T.Good (n + 1) z0 zn P) :
-    T.DeciderRel (n + 1) z0 zn := by
+    ∃ D : T.DecOut, T.DeciderRel (n + 1) z0 zn D := by
   obtain ⟨hx, hU, hu, hcf⟩ := hP
   set π := T.k1.ckE.commit (crossTerm T.k1 P.U P.W P.u P.w) 0
-  exact ⟨by omega, P.U, P.u, π,
-    foldWitness (T.ch1 T.pph (T.rawOf P.U) (T.rawOfI P.u) (T.coords π)) 0
-      (crossTerm T.k1 P.U P.W P.u P.w) P.W P.w, P.cfU, P.cfW, hx,
-    fold_complete T.k1 hU hu _ 0, hcf⟩
+  set ρ := T.ch1 T.pph (T.rawOf P.U) (T.rawOfI P.u) (T.coords π)
+  refine ⟨⟨P.U, P.u, π, foldWitness ρ 0 (crossTerm T.k1 P.U P.W P.u P.w) P.W P.w, P.cfU, P.cfW⟩,
+    by omega, hx, ?_, hcf⟩
+  exact fold_complete T.k1 hU hu ρ 0
+
+variable {SW : Type*} {R : S → SW → S → Prop}
 
 /-- **Decider soundness (relation level).** -/
-theorem decider_rel_sound (hA : T.AugSound) (hC : T.CFSound) (hH : T.HsInj)
-    (hE1 : ¬ T.k1.ckE.DLRel) (hW1 : ¬ T.k1.ckW.DLRel)
-    (hE2 : ¬ T.k2.ckE.DLRel) (hW2 : ¬ T.k2.ckW.DLRel) (f1 : T.Fork1) (f2 : T.Fork2)
-    {N : ℕ} (hcast : CastOK F1 N) {n : ℕ} (hn : n ≤ N) {z0 zn : S}
-    (h : T.DeciderRel n z0 zn) : zn = T.step^[n] z0 := by
-  obtain ⟨hn0, U, u, π, WW, cfU, cfW, hux, hrun, hcf⟩ := h
+theorem decider_rel_sound (hA : T.AugSound R dec) (hC : T.CFSound) {N : ℕ}
+    (hcast : CastOK F1 N) {n : ℕ} (hn : n ≤ N) {z0 zn : S} {D : T.DecOut}
+    (h : T.DeciderRel n z0 zn D) (E : T.Extraction) (hE : T.ExtractionOK dec n z0 zn D E) :
+    ∃ ws : List SW, ws.length = n ∧ Chain R z0 ws zn := by
+  obtain ⟨hn0, hux, hrun, hcf⟩ := h
+  obtain ⟨ha, hb, hruns⟩ := hE
   obtain ⟨m, rfl⟩ : ∃ m, n = m + 1 := ⟨n - 1, by omega⟩
-  obtain ⟨_, _, _, V₁, V₂, V₃, a12, a13, a23, g1, g2, g3⟩ := f1 _ U u π WW hrun
-  obtain ⟨W, w, hW, hw⟩ := fold_sound T.k1 hE1 hW1 U u π a12 a13 a23 g1 g2 g3
-  exact ivc_sound T hA hC hH hE1 hW1 hE2 hW2 f1 f2 hcast z0 m hn zn ⟨W, U, w, u, cfW, cfU⟩
-    ⟨hux, hW, hw, hcf⟩
+  have hrun' : T.k1.Running (foldInstance (T.decCh D) D.π D.U D.u) D.WW := hrun
+  obtain ⟨hW, hw⟩ := Rewind.sound T.k1 hrun' ha hb
+  have hP : T.Good (m + 1) z0 zn (T.decProof D E.top) := ⟨hux, hW, hw, hcf⟩
+  exact ivc_sound T dec hA hC hcast z0 m hn zn (T.decProof D E.top) E.steps hP hruns
 
 end IVC
 end Sonobe

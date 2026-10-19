@@ -46,9 +46,12 @@ theorem commit_fold {F G : Type*} [CommRing F] [AddCommMonoid G] [Module F G]
     ck.commit (v + ρ • v') (r + ρ * r') = ck.commit v r + ρ • ck.commit v' r' := by
   rw [commit_add, commit_smul]
 
-/-- A nontrivial discrete-log relation among the generators. Binding is exactly its absence. -/
-def DLRel : Prop :=
-  ∃ (c : Fin n → F) (s : F), (c ≠ 0 ∨ s ≠ 0) ∧ ∑ i, c i • ck.g i + s • ck.h = 0
+/-- **Binding at two openings**: `(v, r)` and `(v', r')` are not two different openings of one
+commitment. -/
+def BindsAt (v : Fin n → F) (r : F) (v' : Fin n → F) (r' : F) : Prop :=
+  ck.commit v r = ck.commit v' r' → v = v' ∧ r = r'
+
+theorem bindsAt_self (v : Fin n → F) (r : F) : ck.BindsAt v r v r := fun _ => ⟨rfl, rfl⟩
 
 end PedersenKey
 
@@ -56,18 +59,18 @@ section Binding
 
 variable {F G : Type*} [Ring F] [AddCommGroup G] [Module F G] {n : ℕ}
 
-/-- Binding reduces to the discrete-log relation: two distinct openings of one commitment
-yield a nontrivial relation among the generators. -/
-theorem PedersenKey.binding (ck : PedersenKey F G n) (hno : ¬ ck.DLRel)
-    {v v' : Fin n → F} {r r' : F} (h : ck.commit v r = ck.commit v' r') :
-    v = v' ∧ r = r' := by
-  by_contra hne
-  apply hno
-  refine ⟨v - v', r - r', ?_, ?_⟩
-  · by_contra hc
-    simp only [not_or, not_not] at hc
-    exact hne ⟨sub_eq_zero.mp hc.1, sub_eq_zero.mp hc.2⟩
-  · have := sub_eq_zero.mpr h
+/-- **The reduction**: two different openings of one commitment are a discrete-log relation
+among the generators, with coefficients `v - v'`, `r - r'` computed from them. -/
+theorem PedersenKey.dlRel_of_not_bindsAt (ck : PedersenKey F G n) {v v' : Fin n → F} {r r' : F}
+    (h : ¬ ck.BindsAt v r v' r') :
+    (v - v' ≠ 0 ∨ r - r' ≠ 0) ∧ ∑ i, (v - v') i • ck.g i + (r - r') • ck.h = 0 := by
+  simp only [PedersenKey.BindsAt, Classical.not_imp] at h
+  obtain ⟨hc, hne⟩ := h
+  refine ⟨?_, ?_⟩
+  · by_contra hz
+    simp only [not_or, not_not, sub_eq_zero] at hz
+    exact hne hz
+  · have := sub_eq_zero.mpr hc
     simpa [PedersenKey.commit, sub_smul, Finset.sum_sub_distrib, sub_add_sub_comm] using this
 
 end Binding

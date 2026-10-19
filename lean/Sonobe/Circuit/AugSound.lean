@@ -19,7 +19,8 @@ noncomputable local instance decEqZModAS {p : ℕ} : DecidableEq (ZMod p) :=
 variable {p1 p2 sN : ℕ} [Fact p1.Prime] [Fact p2.Prime]
 variable (W2 : WeierstrassCurve (ZMod p1)) [Short W2] [W2.IsElliptic]
   (EA : EmuArith p1 p2) (sp : SpongeCfg (ZMod p1)) (dS dT : List (ZMod p1))
-  (pm1 : ℕ → Bool) (G : ZMod p1 × ZMod p1) (StepRel : (Fin sN → ZMod p1) → (Fin sN → ZMod p1) → Prop)
+  (pm1 : ℕ → Bool) (G : ZMod p1 × ZMod p1) {SW : Type*}
+  (StepRel : (Fin sN → ZMod p1) → SW → (Fin sN → ZMod p1) → Prop)
 
 /-! ### Values of the wires -/
 
@@ -258,8 +259,8 @@ variable {p1 p2 sN : ℕ} [Fact p1.Prime] [Fact p2.Prime]
 variable (W1 : WeierstrassCurve (ZMod p2)) [Short W1] [W1.IsElliptic]
   (W2 : WeierstrassCurve (ZMod p1)) [Short W2] [W2.IsElliptic]
   (EA : EmuArith p1 p2) (sp : SpongeCfg (ZMod p1)) (dS dT : List (ZMod p1))
-  (pm1 : ℕ → Bool) (G : ZMod p1 × ZMod p1)
-  (StepRel : (Fin sN → ZMod p1) → (Fin sN → ZMod p1) → Prop)
+  (pm1 : ℕ → Bool) (G : ZMod p1 × ZMod p1) {SW : Type*}
+  (StepRel : (Fin sN → ZMod p1) → SW → (Fin sN → ZMod p1) → Prop)
   [Module (ZMod p1) W1.toAffine.Point] [Module (ZMod p2) W2.toAffine.Point]
 
 /-- The output hash when the base case is not active. -/
@@ -342,13 +343,21 @@ theorem aug_uux_zero {v : AugVars p1 sN} {uux : ZMod p1}
     simp [pr, coordsOf, encE]
   rw [hlist]
 
-/-- **`AugSound`, derived from the augmented circuit.** -/
+/-- The values `AugSound` speaks about, read off the wires. -/
+noncomputable def augOutOf (v : AugVars p1 sN) :
+    AugOut (ZMod p1) (ZMod p2) W2.toAffine.Point (Fin sN → ZMod p1) (ZMod p2 × ZMod p2) 7 :=
+  ⟨v.pp, v.i, v.z0, v.zi, v.nx, Uraw v, uinRaw v, piRaw v, (secOf v.sa v.sE v.sW).val W2,
+    (cfI0 v).val W2, (cfI1 v).val W2, v.cp0.pt W2, v.cp1.pt W2,
+    ((natVal 128 (fun j => decide (v.rb0 j = 1)) : ℕ) : ZMod p2),
+    ((natVal 128 (fun j => decide (v.rb1 j = 1)) : ℕ) : ZMod p2),
+    (vE v 8, vE v 9), (vE v 10, vE v 11)⟩
+
+/-- **`AugSound`, derived from the augmented circuit**, for the decoder `augOutOf ∘ decode`. -/
 theorem augSound_of_circuit
     (T : Setup (ZMod p1) W1.toAffine.Point (ZMod p2) W2.toAffine.Point (Fin sN → ZMod p1)
       (ZMod p2 × ZMod p2) 7)
     (hco : T.coords = coordsOf W1) (hhs : T.hs = hsC W2 sp dS) (hch : T.ch1n = ch1nC sp dT)
     (hcfx : ∀ n c0 c1 c2, T.cfX n c0 c1 c2 = cfVec n c0 c1 c2)
-    (hstep : ∀ z z', StepRel z z' → z' = T.step z)
     (hsmul2 : ∀ (n : ℕ) (P : W2.toAffine.Point), (n : ZMod p2) • P = n • P)
     (circ : Circuit (ZMod p1) 1 T.nw1 (AugVars p1 sN))
     (hsat : ∀ x w, T.k1.r1cs.Sat x w → circ.rel x (circ.decode w))
@@ -357,25 +366,26 @@ theorem augSound_of_circuit
     (hord : ∀ P : W2.toAffine.Point, P ≠ 0 → addOrderOf P = r) (hrn : 2 ^ 128 < r)
     (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8)) (hp2' : 2 ^ 128 ≤ p2)
     (hG : W2.toAffine.Equation G.1 G.2) (hpm : natVal 254 pm1 = p1 - 1) :
-    T.AugSound := by
+    T.AugSound StepRel (fun w => augOutOf W2 (circ.decode w)) := by
   intro w' u' hinc
+  show T.AugFacts StepRel (augOutOf W2 (circ.decode w'.w)) u'.x
   have h : AugRel W2 EA sp dS dT pm1 G StepRel (circ.decode w'.w) (u'.x 0) :=
     hrel _ _ (hsat _ _ hinc.1)
   set v := circ.decode w'.w with hv
-  refine ⟨v.pp, v.i, v.z0, v.zi, Uraw v, uinRaw v, piRaw v, (secOf v.sa v.sE v.sW).val W2,
-    (cfI0 v).val W2, (cfI1 v).val W2, v.cp0.pt W2, v.cp1.pt W2,
-    ((natVal 128 (fun j => decide (v.rb0 j = 1)) : ℕ) : ZMod p2),
-    ((natVal 128 (fun j => decide (v.rb1 j = 1)) : ℕ) : ZMod p2),
-    (vE v 8, vE v 9), (vE v 10, vE v 11), ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
   · exact (aug_basecase W2 EA sp dS dT pm1 G StepRel h).2
+  · obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hstp, -⟩ := h
+    exact hstp
   · funext _
-    simp only [uinRaw]
+    simp only [augOutOf, uinRaw]
     rw [hhs]
     exact aug_ux W2 EA sp dS dT pm1 G StepRel hp hp2 h
   · -- first CycleFold instance
     have h32 : 2 ^ 32 < p1 := lt_of_lt_of_le (by omega : 2 ^ 32 < 2 ^ 32 + 2 ^ 33) hp.le
     obtain ⟨hbool, hn, -⟩ := aug_rho W2 EA sp dS dT pm1 G StepRel hp hp2 hpm h
     obtain ⟨-, hrv⟩ := rho_canon h32 hp2' hbool
+    show ((cfI0 v).val W2).x = T.cfX (T.ch1n v.pp (Uraw (p2 := p2) v) (uinRaw (p2 := p2) v)
+      (piRaw (p2 := p2) v)) (Uraw (p2 := p2) v).cmE (piRaw (p2 := p2) v) (vE v 8, vE v 9)
     rw [hcfx, hch]
     funext j
     fin_cases j <;> simp [SecInc.val, cfI0, cfVec, Uraw, piRaw, vE, hrv, hn]
@@ -383,6 +393,8 @@ theorem augSound_of_circuit
     have h32 : 2 ^ 32 < p1 := lt_of_lt_of_le (by omega : 2 ^ 32 < 2 ^ 32 + 2 ^ 33) hp.le
     obtain ⟨hbool, hn, -⟩ := aug_rho W2 EA sp dS dT pm1 G StepRel hp hp2 hpm h
     obtain ⟨-, hrv⟩ := rho_canon h32 hp2' hbool
+    show ((cfI1 v).val W2).x = T.cfX (T.ch1n v.pp (Uraw (p2 := p2) v) (uinRaw (p2 := p2) v)
+      (piRaw (p2 := p2) v)) (Uraw (p2 := p2) v).cmW (uinRaw (p2 := p2) v).cmW (vE v 10, vE v 11)
     rw [hcfx, hch]
     funext j
     fin_cases j <;> simp [SecInc.val, cfI1, cfVec, Uraw, uinRaw, vE, hrv, hn]
@@ -390,24 +402,21 @@ theorem augSound_of_circuit
     funext j
     have hj : j = 0 := Subsingleton.elim _ _
     subst hj
-    have h' := h
-    obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hstp, -⟩ := h'
-    have hnx : v.nx = T.step v.zi := hstep _ _ hstp
     rw [hhs]
     by_cases hi : v.i = 0
-    · simp only [if_pos hi]
+    · simp only [Setup.outU, AugOut.outCf, augOutOf, if_pos hi]
       have e := aug_uux_zero W2 EA sp dS dT pm1 G StepRel hp hp2 (Nat.pos_of_ne_zero (by
         intro h0; have := (Fact.out : p2.Prime).pos; omega)) hi h
-      rw [e, hnx]
+      rw [e]
       have : T.rawOf (dummyRU (ZMod p1) W1.toAffine.Point 1) = ⟨(0, 0), 0, (0, 0), fun _ => 0⟩ := by
         simp [Setup.rawOf, hco, dummyRU, coordsOf]
       rw [this]
-    · simp only [if_neg hi]
+    · simp only [Setup.outU, AugOut.outCf, AugOut.cfMid, augOutOf, if_neg hi]
       have e := aug_uux_pos W2 EA sp dS dT pm1 G StepRel hsmul2 h2 hnr hord hrn hp hp2 hp2' hG hpm hi h
       have hfold := (aug_fs2 W2 EA sp dS dT pm1 G StepRel hsmul2 h2 hnr hord hrn hp hp2 hp2' hG hpm h).2.2.2.2
       obtain ⟨-, -, hrho⟩ := aug_rho W2 EA sp dS dT pm1 G StepRel hp hp2 hpm h
-      rw [e, hnx, ← hfold]
-      simp only [Setup.ch1, hch, hrho]
+      rw [e, ← hfold]
+      simp only [Setup.chOf, Setup.ch1, hch, hrho]
       have hx : ∀ ρ : ZMod p1, (Uraw (p2 := p2) v).x + ρ • (uinRaw (p2 := p2) v).x =
           fun _ => v.Ux + ρ * v.uxIn := by
         intro ρ; funext j; simp [Uraw, uinRaw]

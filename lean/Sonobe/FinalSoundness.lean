@@ -14,7 +14,9 @@ gadgets:
 * `Gadget.augSound_of_circuit` — augmented circuit (canonical `Tight` limbs, emulated absorb,
   duplex sponge, canonical `to_bits_le`, primary/secondary fold verifiers, base-case selects).
 
-The remaining assumptions are the hypotheses of the theorem.
+The remaining assumptions are the hypotheses of the theorem. The cryptographic ones are
+`Setup.RunOK`: the extraction data `ds` of the run (the rewindings of every fold) is accepting, and
+no value of the run breaks binding or collides the state hash.
 -/
 
 namespace Sonobe
@@ -31,9 +33,11 @@ variable (W1 : WeierstrassCurve (ZMod p2)) [Short W1] [W1.IsElliptic]
   (W2 : WeierstrassCurve (ZMod p1)) [Short W2] [W2.IsElliptic]
   (sp : SpongeCfg (ZMod p1)) (dS dT : List (ZMod p1))
   (pm1 : ℕ → Bool) (G1 : ZMod p2 × ZMod p2) (G2 : ZMod p1 × ZMod p1)
-  (StepRel : (Fin sN → ZMod p1) → (Fin sN → ZMod p1) → Prop)
+  {SW : Type*} (StepRel : (Fin sN → ZMod p1) → SW → (Fin sN → ZMod p1) → Prop)
   [Module (ZMod p1) W1.toAffine.Point] [Module (ZMod p2) W2.toAffine.Point]
 
+/-- **IVC soundness from the circuit models**: an accepted `(n+1)`-step proof, whose run meets
+`RunOK`, gives `n + 1` assignments of the step circuit chaining `z₀` to `z_{n+1}`. -/
 theorem ivc_sound_of_circuits
     (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8))
     (hbits : bitsLen ((p2 : ℤ) - 1) = 254)
@@ -42,7 +46,6 @@ theorem ivc_sound_of_circuits
     -- identification of the abstract model with the concrete hash, challenge and wiring
     (hco : T.coords = coordsOf W1) (hhs : T.hs = hsC W2 sp dS) (hch : T.ch1n = ch1nC sp dT)
     (hcfx : ∀ n c0 c1 c2, T.cfX n c0 c1 c2 = cfVec n c0 c1 c2)
-    (hstep : ∀ z z', StepRel z z' → z' = T.step z)
     (hsmul1 : ∀ (n : ℕ) (P : W1.toAffine.Point), (n : ZMod p1) • P = n • P)
     (hsmul2 : ∀ (n : ℕ) (P : W2.toAffine.Point), (n : ZMod p2) • P = n • P)
     -- the two circuits and the trusted R1CS synthesis
@@ -61,17 +64,17 @@ theorem ivc_sound_of_circuits
     (hG2 : W2.toAffine.Equation G2.1 G2.2)
     (hp2' : 2 ^ 128 ≤ p2)
     (hpm : natVal 254 pm1 = p1 - 1)
-    -- cryptographic assumptions
-    (hH : T.HsInj) (hE1 : ¬ T.k1.ckE.DLRel) (hW1 : ¬ T.k1.ckW.DLRel)
-    (hE2 : ¬ T.k2.ckE.DLRel) (hW2 : ¬ T.k2.ckW.DLRel) (f1 : T.Fork1) (f2 : T.Fork2)
     {N : ℕ} (hcast : CastOK (ZMod p1) N) (z0 : Fin sN → ZMod p1) :
-    ∀ n, n + 1 ≤ N → ∀ (zn : Fin sN → ZMod p1) (P : Proof T), T.Good (n + 1) z0 zn P →
-      zn = T.step^[n + 1] z0 :=
-  ivc_sound T
-    (augSound_of_circuit W1 W2 (EmuArith.concrete hp hp2 hbits) sp dS dT pm1 G2 StepRel T hco hhs hch hcfx hstep hsmul2 circA
-      hsatA hrelA h2b hnr2 hord2 hrn2 hp hp2 hp2' hG2 hpm)
+    ∀ n, n + 1 ≤ N → ∀ (zn : Fin sN → ZMod p1) (P : Proof T) (ds : List T.StepData),
+      T.Good (n + 1) z0 zn P →
+      -- the run's hypotheses: its rewindings are accepting, no binding break, no collision
+      T.RunOK (fun w => augOutOf W2 (circA.decode w)) z0 (n + 1) zn P ds →
+      ∃ ws : List SW, ws.length = n + 1 ∧ Chain StepRel z0 ws zn :=
+  ivc_sound T _
+    (augSound_of_circuit W1 W2 (EmuArith.concrete hp hp2 hbits) sp dS dT pm1 G2 StepRel T hco hhs
+      hch hcfx hsmul2 circA hsatA hrelA h2b hnr2 hord2 hrn2 hp hp2 hp2' hG2 hpm)
     (cfSound_of_circuit W1 T hco hcfx hsmul1 hG1 circC hcompC hrelC hb1 h2a hnr1 hord1 hrn1 hp2')
-    hH hE1 hW1 hE2 hW2 f1 f2 hcast z0
+    hcast z0
 
 end Gadget
 end Sonobe

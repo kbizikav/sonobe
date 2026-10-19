@@ -15,7 +15,7 @@ are derived from the constraint-level models:
 
 Trusted in addition to the soundness side: the *completeness* direction of the R1CS
 synthesis (`constraint model ⇒ R1CS satisfiable`), the completeness half of the emulated modular
-arithmetic (`EmuArith.Complete`), and that the step circuit is satisfiable (`hstepc`).
+arithmetic (`EmuArith.Complete`).
 -/
 
 namespace Sonobe
@@ -32,7 +32,7 @@ variable (W1 : WeierstrassCurve (ZMod p2)) [Short W1] [W1.IsElliptic]
   (W2 : WeierstrassCurve (ZMod p1)) [Short W2] [W2.IsElliptic]
   (sp : SpongeCfg (ZMod p1)) (dS dT : List (ZMod p1))
   (pm1 : ℕ → Bool) (G1 : ZMod p2 × ZMod p2) (G2 : ZMod p1 × ZMod p1)
-  (StepRel : (Fin sN → ZMod p1) → (Fin sN → ZMod p1) → Prop)
+  {SW : Type*} (StepRel : (Fin sN → ZMod p1) → SW → (Fin sN → ZMod p1) → Prop)
   [Module (ZMod p1) W1.toAffine.Point] [Module (ZMod p2) W2.toAffine.Point]
 
 theorem ivc_complete_of_circuits
@@ -44,7 +44,6 @@ theorem ivc_complete_of_circuits
     (hco : T.coords = coordsOf W1) (hhs : T.hs = hsC W2 sp dS) (hch : T.ch1n = ch1nC sp dT)
     (hch2a : T.ch2an = ch2anC W2 sp dT) (hch2b : T.ch2bn = ch2bnC W2 sp dT)
     (hcfx : ∀ n c0 c1 c2, T.cfX n c0 c1 c2 = cfVec n c0 c1 c2)
-    (hstepc : ∀ z, StepRel z (T.step z))
     (hsmul1 : ∀ (n : ℕ) (P : W1.toAffine.Point), (n : ZMod p1) • P = n • P)
     (hsmul2 : ∀ (n : ℕ) (P : W2.toAffine.Point), (n : ZMod p2) • P = n • P)
     -- the two circuits and the trusted R1CS synthesis (completeness direction)
@@ -64,10 +63,11 @@ theorem ivc_complete_of_circuits
     (hp2' : 2 ^ 128 ≤ p2)
     (hp1b : p1 ≤ 2 ^ 254) (hp2b : p2 ≤ 2 ^ 254) (hpm : natVal 254 pm1 = p1 - 1)
     {N : ℕ} (hcast : CastOK (ZMod p1) N) (z0 : Fin sN → ZMod p1) :
-    ∀ n ≤ N, ∃ P : Proof T, T.Verify n z0 (T.step^[n] z0) P :=
+    ∀ (ws : List SW) (zn : Fin sN → ZMod p1), Chain StepRel z0 ws zn → ws.length ≤ N →
+      ∃ P : Proof T, T.Verify ws.length z0 zn P :=
   ivc_complete T
-    (augComplete_of_circuit W1 W2 (EmuArith.concrete hp hp2 hbits) sp dS dT pm1 G2 StepRel T hco hhs hch hch2a hch2b hcfx hstepc
-      EAc hsmul2 hcompA h2b hnr2 hord2 hrn2 hp hp2 hp2' hp1b hp2b hG2 hpm)
+    (augComplete_of_circuit W1 W2 (EmuArith.concrete hp hp2 hbits) sp dS dT pm1 G2 StepRel T hco
+      hhs hch hch2a hch2b hcfx EAc hsmul2 hcompA h2b hnr2 hord2 hrn2 hp hp2 hp2' hp1b hp2b hG2 hpm)
     (cfComplete_of_circuit W1 T hco hcfx hsmul1 hG1 circC hcompC hrelC hb1 h2a hnr1 hord1 hrn1 hp2')
     hcast z0
 
