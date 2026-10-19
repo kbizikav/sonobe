@@ -40,15 +40,14 @@ theorem bitsB_len : max (bitsLen 0) (bitsLen ((2 : ℤ) ^ 128 - 1)) = 128 := by
 theorem bitsB_low {i : ℕ} (hi : i < 4) : bitsB 128 i = ⟨0, 2 ^ 32 - 1⟩ := by
   simp only [bitsB, computeBounds, bitsB_len, show 128 / 32 = 4 by norm_num, hi, if_true]
   have : (0 : ℤ) < 2 ^ 128 - 1 := by norm_num
-  simp [this]
+  simp
 
 theorem bitsB_high {i : ℕ} (hi : 4 ≤ i) : bitsB 128 i = Bnd.zero := by
   simp only [bitsB, computeBounds, bitsB_len, show 128 / 32 = 4 by norm_num]
   rw [if_neg (by omega), if_neg (by simp)]
 
 /-- A 128-bit challenge (four 32-bit limbs, zero past them) is valid for `from_bits_le`. -/
-theorem bits_valid {b : ℕ → ZMod p1} (h1 : ∀ k < 4, (b k).val < 2 ^ 32)
-    (h2 : ∀ k, 4 ≤ k → b k = 0) : Valid (bitsB 128) (tr 4 b) (limbZ 4 b) := by
+theorem bits_valid {b : ℕ → ZMod p1} (h1 : ∀ k < 4, (b k).val < 2 ^ 32) : Valid (bitsB 128) (tr 4 b) (limbZ 4 b) := by
   intro i
   by_cases hi : i < 4
   · rw [bitsB_low hi]
@@ -103,21 +102,23 @@ theorem tr_sum_idem (a b : ℕ → ZMod p1) (n m N : ℕ) (hn : n ≤ N) (hm : m
   · simp [tr, hi]
   · simp [tr, hi, show ¬ i < n by omega, show ¬ i < m by omega]
 
-theorem addShape_zero (hbits : bitsLen ((p2 : ℤ) - 1) = 254) (hp2 : (1 : ℤ) < p2) :
+omit [Fact (Nat.Prime p2)] in
+theorem addShape_zero (hbits : bitsLen ((p2 : ℤ) - 1) = 254) :
     ∀ i, (addShape p2).N ≤ i → (addShape p2).selfB i = Bnd.zero := by
   intro i hi
   have hi8 : 8 ≤ i := hi
   simp only [addShape, addB]
-  rw [tightB_high p2 hbits hp2 (by omega), bitsB_high (by omega)]
+  rw [tightB_high p2 hbits (by omega), bitsB_high (by omega)]
   simp [Bnd.add, Bnd.zero]
 
-theorem mulShape_zero (hbits : bitsLen ((p2 : ℤ) - 1) = 254) (hp2 : (1 : ℤ) < p2) :
+omit [Fact (Nat.Prime p2)] in
+theorem mulShape_zero (hbits : bitsLen ((p2 : ℤ) - 1) = 254) :
     ∀ i, (mulShape p2).N ≤ i → (mulShape p2).selfB i = Bnd.zero := by
   intro i hi
   have hi' : 11 ≤ i := hi
   simp only [mulShape, addB]
-  rw [mulB_zero (n := 8) (m := 4) (fun j hj => tightB_high p2 hbits hp2 (by omega))
-    (fun j hj => bitsB_high hj) (by omega), tightB_high p2 hbits hp2 (by omega)]
+  rw [mulB_zero (n := 8) (m := 4) (fun j hj => tightB_high p2 hbits (by omega))
+    (fun j hj => bitsB_high hj) (by omega), tightB_high p2 hbits (by omega)]
   simp [Bnd.add, Bnd.zero]
 
 /-- Value of a canonical element. -/
@@ -132,14 +133,14 @@ theorem modAdd_sound (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8))
     (hb1 : ∀ k < 4, (b k).val < 2 ^ 32) (hb2 : ∀ k, 4 ≤ k → b k = 0) (h : ModAddC p2 a b o) :
     Canon p2 o ∧ limbsVal 8 o = (limbsVal 8 a + limbsVal 8 b) % p2 := by
   have hp2' : (1 : ℤ) < p2 := by have := (Fact.out : p2.Prime).two_le; omega
-  have hS := valid_add (tight_valid hbits ha) (bits_valid hb1 hb2)
+  have hS := valid_add (tight_valid hbits ha) (bits_valid hb1)
   unfold ModAddC at h
   have hS' : Valid (addShape p2).selfB (tr (addShape p2).N (fun i => tr 8 a i + tr 4 b i))
       (fun i => limbZ 8 a i + limbZ 4 b i) := by
     show Valid (addB (tightB p2) (bitsB 128)) (tr 8 (fun i => tr 8 a i + tr 4 b i)) _
     rw [tr_sum_idem a b 8 4 8 le_rfl (by norm_num)]
     exact hS
-  obtain ⟨hcan, Q, hQ⟩ := modulo_sound hp hp2 (addShape p2) (addShape_zero hbits hp2') hS' h
+  obtain ⟨hcan, Q, hQ⟩ := modulo_sound hp hp2 (addShape p2) (addShape_zero hbits) hS' h
   refine ⟨hcan, ?_⟩
   have hb8 : (limbsVal 4 b : ℤ) = (limbsVal 8 b : ℤ) := by
     unfold limbsVal
@@ -179,7 +180,7 @@ theorem modMulAdd_sound (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8))
   obtain ⟨z, hmul, hmod⟩ := h
   have hz := mulRel_sound (p := p1) (by norm_num) (by norm_num) (by simpa using hp1') hmul
   have hva := tight_valid hbits ha
-  have hvb := bits_valid hb1 hb2
+  have hvb := bits_valid hb1
   have hvc := tight_valid hbits hc
   have hS := valid_add (valid_mul hva hvb) hvc
   have hfun : (fun i => tr 11 z i + tr 8 c i) =
@@ -199,7 +200,7 @@ theorem modMulAdd_sound (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8))
       (fun i => conv (limbZ 8 a) (limbZ 4 b) i + limbZ 8 c i) := by
     show Valid (addB (mulB (tightB p2) (bitsB 128)) (tightB p2)) (tr 11 _) _
     rw [hself]; exact hS
-  obtain ⟨hcan, Q, hQ⟩ := modulo_sound hp hp2 (mulShape p2) (mulShape_zero hbits hp2') hS' hmod
+  obtain ⟨hcan, Q, hQ⟩ := modulo_sound hp hp2 (mulShape p2) (mulShape_zero hbits) hS' hmod
   refine ⟨hcan, ?_⟩
   have hb8 : (limbsVal 4 b : ℤ) = (limbsVal 8 b : ℤ) := by
     unfold limbsVal
@@ -232,8 +233,8 @@ def EmuArith.concrete (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8))
     (hbits : bitsLen ((p2 : ℤ) - 1) = 254) : EmuArith p1 p2 where
   ModAdd := ModAddC p2
   ModMulAdd := ModMulAddC p2
-  add_sound a b o ha hb1 hb2 h := modAdd_sound hp hp2 hbits ha hb1 hb2 h
-  mul_sound a b c o ha hc hb1 hb2 h := modMulAdd_sound hp hp2 hbits ha hc hb1 hb2 h
+  add_sound _ _ _ ha hb1 hb2 h := modAdd_sound hp hp2 hbits ha hb1 hb2 h
+  mul_sound _ _ _ _ ha hc hb1 hb2 h := modMulAdd_sound hp hp2 hbits ha hc hb1 hb2 h
 
 end Gadget
 end Sonobe

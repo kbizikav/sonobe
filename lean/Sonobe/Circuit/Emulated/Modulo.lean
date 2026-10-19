@@ -93,7 +93,7 @@ theorem valid_small {n : ℕ} {a : ℕ → ZMod p1} (h : ∀ i < n, (a i).val < 
   · have := h i hi
     have : ((a i).val : ℤ) < 2 ^ 32 := by exact_mod_cast this
     simp only [looseB, limbZ, tr, hi, if_true, Bnd.Mem, Bool.false_eq_true, if_false]
-    refine ⟨⟨by positivity, by omega⟩, by simp [limbZ, tr, hi]⟩
+    refine ⟨⟨by positivity, by omega⟩, by simp⟩
   · simp [looseB, limbZ, tr, hi, Bnd.Mem, Bnd.zero]
 
 theorem intVal_eq_of_zero (z : ℕ → ℤ) {n N : ℕ} (hnN : n ≤ N) (hz : ∀ i, n ≤ i → z i = 0) :
@@ -104,6 +104,7 @@ theorem intVal_eq_of_zero (z : ℕ → ℤ) {n N : ℕ} (hnN : n ≤ N) (hz : �
     sum_eq_zero fun i hi => by rw [hz i (mem_Ico.mp hi).1]; simp
   rw [this, add_zero]
 
+omit [Fact (Nat.Prime p2)] in
 theorem intVal_const (hp2 : p2 < 2 ^ (32 * 8)) : intVal (constZ p2) 8 = p2 := by
   unfold intVal constZ
   have := sum_mlimb p2 8
@@ -114,6 +115,7 @@ theorem intVal_const (hp2 : p2 < 2 ^ (32 * 8)) : intVal (constZ p2) 8 = p2 := by
   refine sum_congr rfl fun i hi => ?_
   rw [if_pos (mem_range.mp hi)]
 
+omit [Fact (Nat.Prime p1)] in
 theorem valid_zero_beyond {bs : ℕ → Bnd} {a : ℕ → ZMod p1} {z : ℕ → ℤ} {n : ℕ}
     (hb : ∀ i, n ≤ i → bs i = Bnd.zero) (h : Valid bs a z) : ∀ i, n ≤ i → z i = 0 := by
   intro i hi
@@ -136,7 +138,7 @@ theorem modulo_sound (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8)) (sh :
   have hne : 0 < sh.nq p2 → sh.qNeg p2 = true ∨ sh.qPos p2 = true := by
     intro hn
     by_contra hcon
-    push_neg at hcon
+    push Not at hcon
     have hl : ¬ sh.qlb p2 < 0 := by
       have := hcon.1; simp [ModShape.qNeg] at this; omega
     have hu : ¬ 0 < sh.qub p2 := by

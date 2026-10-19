@@ -49,6 +49,7 @@ theorem add_rel {P₁ P₂ : F × F} (hx : P₁.1 ≠ P₂.1) : AddRel P₁ P₂
   have : P₂.1 - P₁.1 ≠ 0 := sub_ne_zero.mpr (Ne.symm hx)
   unfold addL; field_simp
 
+omit [W.IsElliptic] in
 theorem y_ne_zero_of_eq (h2 : (2 : F) ≠ 0) (hnr : ∀ e : F, e ^ 3 + W.a₄ * e + W.a₆ ≠ 0) {P : F × F}
     (he : W.toAffine.Equation P.1 P.2) : 2 * P.2 ≠ 0 := by
   refine mul_ne_zero h2 fun h0 => hnr P.1 ?_
@@ -61,7 +62,7 @@ include hq
 /-- **Invariants of the honest chain.** -/
 theorem chain_inv (h2 : (2 : F) ≠ 0) (hnr : ∀ e : F, e ^ 3 + W.a₄ * e + W.a₆ ≠ 0) {n : ℕ}
     {b : ℕ → F} {Q : F × F} (hQ : W.toAffine.Equation Q.1 Q.2) (hQq : ptOf W Q = q)
-    (hn : 2 ^ n < r) (hb : ∀ i < n, IsBool (b i)) :
+    (hn : 2 ^ n < r) :
     ∀ i, i < n →
       (W.toAffine.Equation (aseq W.a₄ Q b i).1 (aseq W.a₄ Q b i).2 ∧
         ptOf W (aseq W.a₄ Q b i) = kv (fun j => if b j = 1 then 1 else 0) i • q) ∧
@@ -74,7 +75,7 @@ theorem chain_inv (h2 : (2 : F) ≠ 0) (hnr : ∀ e : F, e ^ 3 + W.a₄ * e + W.
       W.toAffine.Equation (mseq W.a₄ Q (i + 1)).1 (mseq W.a₄ Q (i + 1)).2 ∧
         ptOf W (mseq W.a₄ Q (i + 1)) = 2 ^ (i + 1) • q := by
     intro i he hp
-    exact dbl_step W q hq h2 hnr he hp (dbl_rel W.a₄ (y_ne_zero_of_eq W h2 hnr he))
+    exact dbl_step W q h2 hnr he hp (dbl_rel W.a₄ (y_ne_zero_of_eq W h2 hnr he))
   intro i
   induction i with
   | zero =>
@@ -120,7 +121,7 @@ theorem chain_complete (h2 : (2 : F) ≠ 0) (hnr : ∀ e : F, e ^ 3 + W.a₄ * e
     ScalarChain W.a₄ n b Q (aseq W.a₄ Q b) (mseq W.a₄ Q)
       (fun i => addPt (aseq W.a₄ Q b (i - 1)) (mseq W.a₄ Q i))
       (fun i => addL (aseq W.a₄ Q b (i - 1)) (mseq W.a₄ Q i)) (fun i => dblL W.a₄ (mseq W.a₄ Q i)) := by
-  have inv := chain_inv W hq h2 hnr hQ hQq hn hb
+  have inv := chain_inv W hq h2 hnr (b := b) hQ hQq hn
   have hD : ∀ i, i < n → DblRel W.a₄ (mseq W.a₄ Q i) (mseq W.a₄ Q (i + 1)) (dblL W.a₄ (mseq W.a₄ Q i)) :=
     fun i hi => dbl_rel W.a₄ (y_ne_zero_of_eq W h2 hnr (inv i hi).2.1)
   refine ⟨rfl, rfl, hD 0 (by omega), ?_⟩

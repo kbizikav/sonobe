@@ -35,6 +35,7 @@ noncomputable def coordPt (xy : ZMod p × ZMod p) : W.toAffine.Point :=
 def ValidPP (P : PP (ZMod p)) : Prop :=
   P.OnCurve W.a₄ W.a₆ ∧ ¬ (P.y = 0 ∧ P.z = 0)
 
+omit [Short W] [W.IsElliptic] in
 theorem ValidPP.not_isZero {P : PP (ZMod p)} (h : ValidPP W P) : ¬ P.IsZero := fun hz => h.2 ⟨hz.2.1, hz.2.2⟩
 
 /-- Witnesses of the CycleFold circuit. -/
@@ -95,7 +96,7 @@ the integer encoded by the `n` boolean witnesses. -/
 theorem cf_sound (hb : W.a₆ ≠ 0) (h2 : (2 : ZMod p) ≠ 0)
     (hnr : ∀ e : ZMod p, e ^ 3 + W.a₄ * e + W.a₆ ≠ 0) {r : ℕ}
     (hord : ∀ P : W.toAffine.Point, P ≠ 0 → addOrderOf P = r) {n : ℕ} (hn : 1 ≤ n)
-    (hrn : 2 ^ n < r) (hnp : 2 ^ n ≤ p) {G : ZMod p × ZMod p} (hG : W.toAffine.Equation G.1 G.2)
+    (hrn : 2 ^ n < r) (hnp : 2 ^ n ≤ p) {G : ZMod p × ZMod p}
     {ρ p0x p0y p1x p1y rx ry : ZMod p} {w : CFWit (ZMod p)}
     (h : CFRel W n G ρ p0x p0y p1x p1y rx ry w) :
     ρ.val < 2 ^ n ∧
@@ -105,7 +106,7 @@ theorem cf_sound (hb : W.a₆ ≠ 0) (h2 : (2 : ZMod p) ≠ 0)
   obtain ⟨hval, hlt⟩ := toNBits_sound hnp hρ
   rw [natVal_bitsOf] at hval
   obtain ⟨hS_c, hS_n, hS_p⟩ :=
-    scalar_mul_sound W h2 hnr hord hn hrn hG hbool hv1.1 hsm
+    scalar_mul_sound W h2 hnr hord hn hrn hbool hv1.1 hsm
   obtain ⟨hR_c, hR_n, hR_p⟩ := rcb_spec W h2 hnr hS_c hv0.1 hS_n hv0.not_isZero
   refine ⟨hlt, ?_⟩
   rw [coordPt_affine W hb hR_c haR, coordPt_affine W hb hv0.1 ha0, coordPt_affine W hb hv1.1 ha1,

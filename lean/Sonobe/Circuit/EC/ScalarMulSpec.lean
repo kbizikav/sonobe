@@ -85,7 +85,7 @@ theorem sm_core (h2 : (2 : F) ≠ 0) (hnr : ∀ e : F, e ^ 3 + W.a₄ * e + W.a�
       · rw [h0]; rw [show n = 0 + 1 by omega]; exact hD0
       · have := (hstep (n - 1) h0 (by omega)).2.2
         rwa [hn'] at this
-    have := dbl_step W q hq h2 hnr hme hmp hD
+    have := dbl_step W q h2 hnr hme hmp hD
     rwa [hn'] at this
   have hres_c := finPP_onCurve W hae
   have hres_n := finPP_not_isZero (acc (n - 1))
@@ -127,7 +127,7 @@ theorem sm_core (h2 : (2 : F) ≠ 0) (hnr : ∀ e : F, e ^ 3 + W.a₄ * e + W.a�
 /-- **`scalar_mul_le` computes `ρ · P`.** -/
 theorem scalar_mul_sound (h2 : (2 : F) ≠ 0) (hnr : ∀ e : F, e ^ 3 + W.a₄ * e + W.a₆ ≠ 0)
     (hord : ∀ P : W.toAffine.Point, P ≠ 0 → addOrderOf P = r)
-    {n : ℕ} (hn : 1 ≤ n) (hrn : 2 ^ n < r) {G : F × F} (hG : W.toAffine.Equation G.1 G.2)
+    {n : ℕ} (hn : 1 ≤ n) (hrn : 2 ^ n < r) {G : F × F}
     {bits : ℕ → F} (hb : ∀ i < n, IsBool (bits i)) {P : PP F} (hP : P.OnCurve W.a₄ W.a₆)
     {w : SMWit F} (h : SMRel W n G bits P w) :
     (smOut W n G bits w).OnCurve W.a₄ W.a₆ ∧ ¬ (smOut W n G bits w).IsZero ∧
@@ -221,7 +221,7 @@ theorem scalar_mul254_sound (h2 : (2 : F) ≠ 0) (hnr : ∀ e : F, e ^ 3 + W.a�
     have hq := hord _ hq0
     obtain ⟨c1, c2, c3, hm, hmp⟩ :=
       sm_core W h2 hnr hq (by norm_num) hrn hE hqP (fun i hi => hb i (by omega)) hC
-    obtain ⟨hm3, hm3p⟩ := dbl_step W (P.pt W) hq h2 hnr hm hmp hD1
+    obtain ⟨hm3, hm3p⟩ := dbl_step W (P.pt W) h2 hnr hm hmp hD1
     obtain ⟨t1c, t1n, t1p⟩ := tail_step W h2 hnr (hb 252 (by norm_num)) c1 c2 c3 hm hmp
     obtain ⟨t2c, t2n, t2p⟩ := tail_step W h2 hnr (hb 253 (by norm_num)) t1c t1n t1p hm3 hm3p
     have hout : smOut254 W G bits w = selPP (bits 253)

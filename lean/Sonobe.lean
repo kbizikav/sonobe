@@ -3,8 +3,9 @@ import Sonobe.Commitment.Pedersen
 import Sonobe.Arith.R1CS
 import Sonobe.Nova.Fold
 import Sonobe.Nova.Soundness
-import Sonobe.Transcript.Griffin
 import Sonobe.Transcript.Sponge
+import Sonobe.Transcript.PoseidonConstants
+import Sonobe.Transcript.Poseidon
 import Sonobe.Nova.Transcript
 import Sonobe.Snark.LinearSubspace
 import Sonobe.Snark.LegoGroth16
@@ -53,3 +54,7 @@ import Sonobe.Circuit.Emulated.Modulo
 import Sonobe.Circuit.EmuArithConcrete
 import Sonobe.Circuit.Emulated.Congruent
 import Sonobe.Circuit.Emulated.R1CSEval
+import Sonobe.Hypotheses
+import Sonobe.Primes
+import Sonobe.Deployment
+import Sonobe.Axioms

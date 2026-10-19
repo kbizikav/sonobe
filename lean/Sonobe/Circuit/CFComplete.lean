@@ -33,12 +33,13 @@ noncomputable def ppOf : W.toAffine.Point → PP (ZMod p)
   | .zero => zeroPP
   | .some x y _ => finPP (x, y)
 
-theorem ppOf_valid (hb : W.a₆ ≠ 0) (P : W.toAffine.Point) : ValidPP W (ppOf W P) := by
+theorem ppOf_valid (P : W.toAffine.Point) : ValidPP W (ppOf W P) := by
   cases P with
   | zero => exact ⟨zeroPP_onCurve _ _, by simp [ppOf, zeroPP]⟩
   | some x y h =>
     exact ⟨finPP_onCurve W ((equation_iff_nonsingular).mpr h), by simp [ppOf, finPP]⟩
 
+omit [Short W] in
 theorem ppOf_pt (P : W.toAffine.Point) : (ppOf W P).pt W = P := by
   cases P with
   | zero => exact zeroPP_pt W
@@ -72,7 +73,7 @@ theorem cfComplete_of_circuit
     (circ : Circuit (ZMod p2) 7 T.nw2 (CFWit (ZMod p2))) (hcomp : circ.Compiles T.k2.r1cs)
     (hrel : ∀ x ω, circ.rel x ω ↔
       CFRel W 128 G (x 0) (x 1) (x 2) (x 3) (x 4) (x 5) (x 6) ω)
-    (hb : W.a₆ ≠ 0) (h2 : (2 : ZMod p2) ≠ 0)
+    (h2 : (2 : ZMod p2) ≠ 0)
     (hnr : ∀ e : ZMod p2, e ^ 3 + W.a₄ * e + W.a₆ ≠ 0) {r : ℕ}
     (hord : ∀ P : W.toAffine.Point, P ≠ 0 → addOrderOf P = r)
     (hrn : 2 ^ 128 < r) (hnp : 2 ^ 128 ≤ p2) : T.CFComplete := by
@@ -89,13 +90,13 @@ theorem cfComplete_of_circuit
     obtain ⟨hv, -⟩ := toNBits_sound hnp hρ
     rw [← natVal_bitsOf, ← hv, hval]
   -- the points
-  have hv0 := ppOf_valid W hb P0
-  have hv1 := ppOf_valid W hb P1
+  have hv0 := ppOf_valid W P0
+  have hv1 := ppOf_valid W P1
   obtain ⟨inf0, zinv0, inv0, ha0⟩ := toAffine_complete_coords W hv0.1
   obtain ⟨inf1, zinv1, inv1, ha1⟩ := toAffine_complete_coords W hv1.1
   rw [ppOf_pt] at ha0 ha1
   obtain ⟨wsm, hsm⟩ := sm_complete W h2 hnr hord (n := 128) (by norm_num) hrn hG hbool hv1.1
-  obtain ⟨hR_c, hR_n, hR_p⟩ := mulAdd_spec W h2 hnr hord (n := 128) (by norm_num) hrn hG hbool
+  obtain ⟨hR_c, hR_n, hR_p⟩ := mulAdd_spec W h2 hnr hord (n := 128) (by norm_num) hrn hbool
     hv1.1 hv0.1 (hv0.not_isZero W) hsm
   rw [ppOf_pt, hnat] at hR_p
   have hP2 : (rcb W.a₄ W.a₆ (smOut W 128 G bits wsm) (ppOf W P0)).pt W = P2 := by

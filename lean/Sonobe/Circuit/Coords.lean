@@ -76,10 +76,10 @@ theorem coordsOf_pt_affine {P : PP (ZMod p)} (hP : P.OnCurve W.a₄ W.a₆) {x y
 
 /-- **CycleFold soundness, point form**: public coordinates of a satisfied circuit are those of
 genuine group elements related by `R = P₀ + ρ · P₁`. -/
-theorem cf_sound_pts (hb : W.a₆ ≠ 0) (h2 : (2 : ZMod p) ≠ 0)
+theorem cf_sound_pts (h2 : (2 : ZMod p) ≠ 0)
     (hnr : ∀ e : ZMod p, e ^ 3 + W.a₄ * e + W.a₆ ≠ 0) {r : ℕ}
     (hord : ∀ P : W.toAffine.Point, P ≠ 0 → addOrderOf P = r) {n : ℕ} (hn : 1 ≤ n)
-    (hrn : 2 ^ n < r) (hnp : 2 ^ n ≤ p) {G : ZMod p × ZMod p} (hG : W.toAffine.Equation G.1 G.2)
+    (hrn : 2 ^ n < r) (hnp : 2 ^ n ≤ p) {G : ZMod p × ZMod p}
     {ρ p0x p0y p1x p1y rx ry : ZMod p} {w : CFWit (ZMod p)}
     (h : CFRel W n G ρ p0x p0y p1x p1y rx ry w) :
     ρ.val < 2 ^ n ∧ ∃ P0 P1 P2 : W.toAffine.Point,
@@ -90,7 +90,7 @@ theorem cf_sound_pts (hb : W.a₆ ≠ 0) (h2 : (2 : ZMod p) ≠ 0)
   obtain ⟨hval, hlt⟩ := toNBits_sound hnp hρ
   rw [natVal_bitsOf] at hval
   obtain ⟨hS_c, hS_n, hS_p⟩ :=
-    scalar_mul_sound W h2 hnr hord hn hrn hG hbool hv1.1 hsm
+    scalar_mul_sound W h2 hnr hord hn hrn hbool hv1.1 hsm
   obtain ⟨hR_c, hR_n, hR_p⟩ := rcb_spec W h2 hnr hS_c hv0.1 hS_n hv0.not_isZero
   refine ⟨hlt, w.P₀.pt W, w.P₁.pt W, (rcb W.a₄ W.a₆ (smOut W n G w.bits w.sm) w.P₀).pt W,
     coordsOf_pt_affine W hv0.1 ha0, coordsOf_pt_affine W hv1.1 ha1,

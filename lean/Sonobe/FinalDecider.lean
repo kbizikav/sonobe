@@ -6,10 +6,10 @@ import Sonobe.IVC.Decider
 /-!
 **Soundness of the EVM decider verifier, from the circuit models.**
 
-`IVC.decider_sound` needs that the decider circuit and verifier enforce `DeciderRel`. The decider
+`IVC.decider_rel_sound` needs that the decider circuit and verifier enforce `DeciderRel`. The decider
 circuit is modelled constraint by constraint (`Circuit/Decider`), the contract at the level of
-words (`EVM/Decider`), and the only assumption on the CP-SNARK is
-`LegoGroth16.CPKnowledgeSound`.
+words (`EVM/Decider`), and the only assumption on the CP-SNARK is its knowledge soundness at the
+call, `LegoGroth16.ExtractsAt`, for the witness its extractor outputs.
 -/
 
 namespace Sonobe
@@ -44,7 +44,7 @@ theorem flatten_ofFn_singleton {α : Type*} : ∀ {n : ℕ} (f : Fin n → α),
 
 theorem xList_map {PW : Type*} (cd : Calldata sN PW) (pts : Fin 6 → ℕ × ℕ) :
     (xList cd pts).map (fun w => (w : ZMod p1)) = (pubOfCd cd pts : DecPub p1 sN).toList := by
-  simp [xList, DecPub.toList, pubOfCd, List.map_flatten, List.flatMap, Function.comp_def, flatten_ofFn_singleton]
+  simp [xList, DecPub.toList, pubOfCd, List.flatMap, Function.comp_def, flatten_ofFn_singleton]
 
 theorem encE_inj (hp1 : 2 ^ 253 < p1) (hp2 : p2 ≤ 2 ^ 254) {v v' : ZMod p2}
     (h : encE p1 p2 v = encE p1 p2 v') : v = v' := by
@@ -81,9 +81,38 @@ variable (W1 : WeierstrassCurve (ZMod p2)) [Short W1] [W1.IsElliptic]
   (W2 : WeierstrassCurve (ZMod p1)) [Short W2] [W2.IsElliptic]
   (sp : SpongeCfg (ZMod p1)) (dS dT : List (ZMod p1))
   (pm1 : ℕ → Bool) (G1 : ZMod p2 × ZMod p2) (G2 : ZMod p1 × ZMod p1)
-  (StepRel : (Fin sN → ZMod p1) → (Fin sN → ZMod p1) → Prop)
+  {SW : Type*} (StepRel : (Fin sN → ZMod p1) → SW → (Fin sN → ZMod p1) → Prop)
   [Module (ZMod p1) W1.toAffine.Point] [Module (ZMod p2) W2.toAffine.Point]
 
+/-- The point a calldata word pair decodes to (`0` if it is not one). -/
+noncomputable def wordPt (a : ℕ × ℕ) : W1.toAffine.Point := (decodeG1 W1 a).getD 0
+
+/-- The folded commitments the contract computes (`(0, 0)` if a precompile fails). -/
+noncomputable def ceOf {PW : Type*} (cd : Calldata sN PW) : ℕ × ℕ :=
+  (foldC W1 cd.uCmE cd.cmT (cd.challenge % 2 ^ 128)).getD (0, 0)
+
+noncomputable def cwOf {PW : Type*} (cd : Calldata sN PW) : ℕ × ℕ :=
+  (foldC W1 cd.uCmW cd.ucmW (cd.challenge % 2 ^ 128)).getD (0, 0)
+
+/-- The public input vector the contract passes to the verifier. -/
+noncomputable def xOf {PW : Type*} (cd : Calldata sN PW) (ld : ℕ) : Fin ld → ZMod p1 :=
+  vecOfList ((xList cd (ptsOf cd (ceOf W1 cd) (cwOf W1 cd))).map (fun w => (w : ZMod p1))) ld
+
+/-- What the decider circuit's witness `wD` (with commitment openings `o`) says the call proves:
+the instances behind the calldata points, and the pairs the circuit decides. -/
+noncomputable def decOutOf
+    (T : Setup (ZMod p1) W1.toAffine.Point (ZMod p2) W2.toAffine.Point (Fin sN → ZMod p1)
+      (ZMod p2 × ZMod p2) 7) {PW : Type*} (cd : Calldata sN PW)
+    (d : DecWit p1 sN T.m1 T.nw1 T.m2 T.nw2) (o : Fin 2 → ZMod p1) : T.DecOut :=
+  ⟨⟨wordPt W1 cd.uCmE, d.v.Uu, wordPt W1 cd.uCmW, fun _ => d.v.Ux⟩,
+    ⟨wordPt W1 cd.ucmW, fun _ => d.v.uxIn⟩, wordPt W1 cd.cmT, ⟨d.we, o 0, d.ww, o 1⟩,
+    SecVar.val (p2 := p2) W2 (secOf d.v.sa d.v.sE d.v.sW),
+    ⟨fun j => emuV p2 (d.cwe j), emuV p2 d.cre, fun j => emuV p2 (d.cww j), emuV p2 d.crw⟩⟩
+
+/-- **Soundness of the EVM decider verifier.** If the contract accepts the call `cd`, and the run
+meets its hypotheses — the CP-SNARK's extractor outputs a valid witness on the call (`hcp`), and
+every rewinding of the run is accepting and breaks no binding, with no hash collision (`hE`) —
+then `cd.i` assignments of the step circuit chain `z₀` to `zᵢ`. -/
 theorem evm_decider_sound
     {PWd G₂ G_T : Type*} [AddCommGroup G₂] [Module (ZMod p1) G₂] [AddCommGroup G_T]
     [Module (ZMod p1) G_T]
@@ -94,9 +123,6 @@ theorem evm_decider_sound
     -- identification of the abstract model with the concrete hash, challenge and wiring
     (hco : T.coords = coordsOf W1) (hhs : T.hs = hsC W2 sp dS) (hch : T.ch1n = ch1nC sp dT)
     (hcfx : ∀ n c0 c1 c2, T.cfX n c0 c1 c2 = cfVec n c0 c1 c2)
-    (hstep : ∀ z z', StepRel z z' → z' = T.step z)
-    (hsmul1 : ∀ (n : ℕ) (P : W1.toAffine.Point), (n : ZMod p1) • P = n • P)
-    (hsmul2 : ∀ (n : ℕ) (P : W2.toAffine.Point), (n : ZMod p2) • P = n • P)
     -- the augmented and the CycleFold circuit
     (circA : Circuit (ZMod p1) 1 T.nw1 (AugVars p1 sN))
     (hsatA : ∀ x w, T.k1.r1cs.Sat x w → circA.rel x (circA.decode w))
@@ -117,42 +143,61 @@ theorem evm_decider_sound
     (hsatD : ∀ x w, RD.Sat x w → circD.rel x (circD.decode w))
     (hrelD : ∀ (p : DecPub p1 sN) ω, circD.rel (vecOfList p.toList (2 * sN + 26)) ω →
       DecRel W2 T.k1.r1cs T.k2.r1cs sp dS dT pm1 G2 PEc PWc pph ω p)
-    -- the CP-SNARK and its knowledge soundness (the one cryptographic assumption on it)
+    -- the CP-SNARK
     (e : W1.toAffine.Point →ₗ[ZMod p1] G₂ →ₗ[ZMod p1] G_T)
     (vk : LegoGroth16.VK W1.toAffine.Point G₂ (2 * sN + 26) 2)
     (decodeProof : PWd → Option (LegoGroth16.Proof W1.toAffine.Point G₂))
-    (hcp : LegoGroth16.CPKnowledgeSound e vk RD
-      (fun w => ((circD.decode w).we, (circD.decode w).ww)) T.k1.ckE T.k1.ckW)
     -- curve and field facts
     (hb1 : W1.a₆ ≠ 0) (h2a : (2 : ZMod p2) ≠ 0)
-    (hnr1 : ∀ e : ZMod p2, e ^ 3 + W1.a₄ * e + W1.a₆ ≠ 0) {r1 : ℕ}
+    {r1 : ℕ}
     (hord1 : ∀ P : W1.toAffine.Point, P ≠ 0 → addOrderOf P = r1) (hrn1 : 2 ^ 128 < r1)
-    (hG1 : W1.toAffine.Equation G1.1 G1.2)
-    (h2b : (2 : ZMod p1) ≠ 0) (hnr2 : ∀ e : ZMod p1, e ^ 3 + W2.a₄ * e + W2.a₆ ≠ 0) {r2 : ℕ}
+    (h2b : (2 : ZMod p1) ≠ 0) {r2 : ℕ}
     (hord2 : ∀ P : W2.toAffine.Point, P ≠ 0 → addOrderOf P = r2) (hrn2 : 2 ^ 252 < r2)
-    (hG2 : W2.toAffine.Equation G2.1 G2.2)
     (hp2' : 2 ^ 128 ≤ p2)
     (hp1b : 2 ^ 253 < p1) (hp2b : p2 ≤ 2 ^ 254)
     (hpm : natVal 254 pm1 = p1 - 1)
-    -- cryptographic assumptions
-    (hH : T.HsInj) (hE1 : ¬ T.k1.ckE.DLRel) (hW1 : ¬ T.k1.ckW.DLRel)
-    (hE2 : ¬ T.k2.ckE.DLRel) (hW2 : ¬ T.k2.ckW.DLRel) (f1 : T.Fork1) (f2 : T.Fork2)
     {N : ℕ} (hcast : CastOK (ZMod p1) N)
     -- the call
-    (cd : Calldata sN PWd) (hn : cd.i ≤ N) (hacc : DeciderAccepts W1 e vk decodeProof cd) :
-    (fun k => (cd.zi k : ZMod p1)) = T.step^[cd.i] (fun k => (cd.z0 k : ZMod p1)) := by
+    (cd : Calldata sN PWd) (hn : cd.i ≤ N) (hacc : DeciderAccepts W1 e vk decodeProof cd)
+    -- the run's hypotheses: the witness the CP-SNARK's extractor outputs on the call, and the
+    -- rewindings of every fold; they are accepting, no binding break, no collision
+    (wD : Fin nwD → ZMod p1) (o : Fin 2 → ZMod p1)
+    (hcp : ∀ cG π, (∀ j, decodeG1 W1 (![ceOf W1 cd, cwOf W1 cd] j) = some (cG j)) →
+      decodeProof cd.proof = some π →
+      LegoGroth16.ExtractsAt e vk RD (fun w => ((circD.decode w).we, (circD.decode w).ww))
+        T.k1.ckE T.k1.ckW (xOf W1 cd (2 * sN + 26)) cG π wD o)
+    (E : T.Extraction)
+    (hE : T.ExtractionOK (fun w => augOutOf W2 (circA.decode w)) cd.i (fun k => (cd.z0 k : ZMod p1))
+      (fun k => (cd.zi k : ZMod p1)) (decOutOf W1 W2 T cd (circD.decode wD) o) E) :
+    ∃ ws : List SW, ws.length = cd.i ∧
+      Chain StepRel (fun k => (cd.z0 k : ZMod p1)) ws (fun k => (cd.zi k : ZMod p1)) := by
+  have hsmul1 : ∀ (n : ℕ) (P : W1.toAffine.Point), (n : ZMod p1) • P = n • P :=
+    fun n P => Nat.cast_smul_eq_nsmul _ n P
+  have hsmul2 : ∀ (n : ℕ) (P : W2.toAffine.Point), (n : ZMod p2) • P = n • P :=
+    fun n P => Nat.cast_smul_eq_nsmul _ n P
+  have hnr1 := no_two_torsion W1 hord1 (lt_of_le_of_lt (by norm_num) hrn1)
+  have hnr2 := no_two_torsion W2 hord2 (lt_of_le_of_lt (by norm_num) hrn2)
   have hrn2' : 2 ^ 128 < r2 :=
     lt_of_le_of_lt (Nat.pow_le_pow_right (by norm_num) (by norm_num)) hrn2
-  have hA := augSound_of_circuit W1 W2 (EmuArith.concrete hp hp2 hbits) sp dS dT pm1 G2 StepRel T hco hhs hch hcfx hstep hsmul2
-    circA hsatA hrelA h2b hnr2 hord2 hrn2' hp hp2 hp2' hG2 hpm
-  have hC := cfSound_of_circuit W1 T hco hcfx hsmul1 hG1 circC hcompC hrelC hb1 h2a hnr1 hord1
+  have hA := augSound_of_circuit W1 W2 (EmuArith.concrete hp hp2 hbits) sp dS dT pm1 G2 StepRel T
+    hco hhs hch hcfx hsmul2 circA hsatA hrelA h2b hnr2 hord2 hrn2' hp hp2 hp2' hpm
+  have hC := cfSound_of_circuit W1 T hco hcfx hsmul1 circC hcompC hrelC h2a hnr1 hord1
     hrn1 hp2'
   rcases hacc with ⟨hi0, hz⟩ | ⟨hi0, ce, cw, hce, hcw, hvp⟩
-  · funext k; rw [hi0, Function.iterate_zero, id, hz]
+  · refine ⟨[], by simp [hi0], ?_⟩
+    have : (fun k => (cd.z0 k : ZMod p1)) = fun k => (cd.zi k : ZMod p1) := by rw [hz]
+    rw [this]; exact Chain.nil _
+  have hceO : ceOf W1 cd = ce := by unfold ceOf; rw [hce]; rfl
+  have hcwO : cwOf W1 cd = cw := by unfold cwOf; rw [hcw]; rfl
   obtain ⟨hlen, hlt, cG, π, hdec, hdecP, hacc'⟩ := hvp
+  have hxOf : xOf W1 cd (2 * sN + 26) =
+      vecOfList (pubOfCd cd (ptsOf cd ce cw) : DecPub p1 sN).toList (2 * sN + 26) := by
+    simp only [xOf, hceO, hcwO, xList_map cd (ptsOf cd ce cw)]
+  obtain ⟨hsat, hc0, hc1⟩ := hcp cG π (by rw [hceO, hcwO]; exact hdec) hdecP (by
+    rw [hxOf, ← xList_map cd (ptsOf cd ce cw)]; exact hacc')
+  rw [hxOf] at hsat
   set pts := ptsOf cd ce cw with hpts
-  rw [xList_map cd pts] at hacc'
-  obtain ⟨w, o, hsat, hc0, hc1⟩ := hcp _ cG π hacc'
+  set w := wD
   have hrel := hrelD (pubOfCd cd pts) (circD.decode w) (hsatD _ w hsat)
   set d := circD.decode w with hd
   obtain ⟨hnz, hxi, hxz, hxzi, hpt, hux, hrho, hchv, hR1, hR2, hOE, hOW, hpp⟩ :=
@@ -258,8 +303,11 @@ theorem evm_decider_sound
     funext _
     show d.v.uxIn = _
     rw [hux, hhs, hrawU, hpp', hi', hz0', hzi']
-  exact decider_rel_sound T hA hC hH hE1 hW1 hE2 hW2 f1 f2 hcast hn
-    ⟨hi0, U, u, Pπ, WW, cfU, cfW, hux', hrun, hcf⟩
+  have hD : decOutOf W1 W2 T cd d o = ⟨U, u, Pπ, WW, cfU, cfW⟩ := by
+    simp [decOutOf, wordPt, hPUE, hPUW, hPu, hPπ, hU, hu, hWW, hcfU, hcfW]
+  rw [hD] at hE
+  exact decider_rel_sound T _ hA hC hcast hn (D := ⟨U, u, Pπ, WW, cfU, cfW⟩)
+    ⟨hi0, hux', hrun, hcf⟩ E hE
 
 end Final
 

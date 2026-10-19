@@ -38,7 +38,7 @@ theorem complete (e : G₁ →ₗ[F] G₂ →ₗ[F] G_T) (a : G₂) (M : R → �
     refine Finset.sum_congr rfl fun i _ => Finset.sum_congr rfl fun j _ => ?_
     rw [mul_comm]
   simp only [Verify, hπ, map_smul, map_neg, LinearMap.smul_apply, map_sum, LinearMap.sum_apply]
-  simp [Finset.sum_neg_distrib]
+  simp
 
 /-- The verification equation forces `π = Σ_j k_j x_j` when `e(·, a)` is injective. -/
 theorem verify_eq (e : G₁ →ₗ[F] G₂ →ₗ[F] G_T) (a : G₂) (hinj : Function.Injective fun g => e g a)

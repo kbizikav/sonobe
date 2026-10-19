@@ -129,15 +129,17 @@ def cm (wc : K → F) (o : C → F) (j : C) : G₁ :=
 def dElt (wc : K → F) (v : F) : G₁ :=
   (((∑ k, pp.kk (Sum.inr (Sum.inl k)) * wc k) / pp.γ + v * pp.η / pp.γ) • g₁)
 
+omit [Fintype P] [Fintype W] in
 theorem row_cm (wc : K → F) (o : C → F) (v : F) (j : C) :
     ∑ i, omega wc o v i • linkM pp g₁ blk gK hC (.inl j) i = cm blk gK hC wc o j := by
   simp [Fintype.sum_sum_type, omega, linkM, cm, apply_ite]
 
+omit [Fintype P] [Fintype W] in
 theorem row_d (wc : K → F) (o : C → F) (v : F) :
     ∑ i, omega wc o v i • linkM pp g₁ blk gK hC (.inr ()) i = dElt pp g₁ wc v := by
   simp only [Fintype.sum_sum_type, omega, linkM, dElt, Sum.elim_inl, Sum.elim_inr, smul_smul,
-    smul_zero, Finset.sum_const_zero, add_zero]
-  simp [← Finset.sum_smul, ← add_smul, add_div, Finset.sum_div, mul_div_assoc, mul_comm]
+    smul_zero, Finset.sum_const_zero]
+  simp [← Finset.sum_smul, ← add_smul, Finset.sum_div, mul_div_assoc, mul_comm]
 
 variable (ak : G₂) (kl : C ⊕ Unit → F)
 

@@ -64,6 +64,7 @@ def rowB (p2 : ℕ) (v : ι → ℕ) : ℕ → Bnd := fun k =>
 /-- Number of limbs of `Σ_c v_c · z_c` (`VectorMulGadget::mul`), over the nonzero entries. -/
 def rlen (v : ι → ℕ) : ℕ := univ.sup fun c => if v c = 0 then 0 else clen (v c) + 7
 
+omit [Fact (Nat.Prime p1)] in
 theorem valid_sum {bs : ι → ℕ → Bnd} {a : ι → ℕ → ZMod p1} {z : ι → ℕ → ℤ}
     (h : ∀ c, Valid (bs c) (a c) (z c)) :
     Valid (fun k => ⟨∑ c, (bs c k).lo, ∑ c, (bs c k).hi⟩) (fun k => ∑ c, a c k)
@@ -91,6 +92,7 @@ theorem rlen_le {v : ι → ℕ} (h : ∀ c, v c < 2 ^ (32 * 8)) : rlen v ≤ 15
   have := clen_le _ (h c)
   split_ifs <;> omega
 
+omit [Fact (Nat.Prime p1)] in
 theorem rowZ_zero {v : ι → ℕ} {zc : ι → ℕ → ZMod p1} {k : ℕ} (hk : rlen v ≤ k) : rowZ v zc k = 0 := by
   unfold rowZ
   refine sum_eq_zero fun c _ => ?_
@@ -102,6 +104,7 @@ theorem rowZ_zero {v : ι → ℕ} {zc : ι → ℕ → ZMod p1} {k : ℕ} (hk :
       (fun i hi => by simp [constZ, mlimb_zero hi])
       (fun j hj => by simp [limbZ, show ¬ j < 8 by omega]) (by omega)
 
+omit [Fact (Nat.Prime p2)] in
 theorem rowB_zero (hbits : bitsLen ((p2 : ℤ) - 1) = 254) {v : ι → ℕ} {k : ℕ} (hk : rlen v ≤ k) : rowB p2 v k = Bnd.zero := by
   unfold rowB
   have : ∀ c, mulB (constB (v c)) (tightB p2) k = Bnd.zero := by
@@ -113,7 +116,7 @@ theorem rowB_zero (hbits : bitsLen ((p2 : ℤ) - 1) = 254) {v : ι → ℕ} {k :
     · have := rlen_ge c h
       exact mulB_zero (n := clen (v c)) (m := 8)
         (fun i hi => by simp [constB, mlimb_zero hi, Bnd.zero])
-        (fun j hj => tightB_high p2 hbits (by have := (Fact.out : p2.Prime).two_le; omega) (by omega)) (by omega)
+        (fun j hj => tightB_high p2 hbits (by omega)) (by omega)
   simp [this, Bnd.zero]
 
 
@@ -213,7 +216,7 @@ def RowRel (p2 : ℕ) (A B C : ι → ℕ) (zc : ι → ℕ → ZMod p1) (u e : 
 theorem valid_row_tr (hbits : bitsLen ((p2 : ℤ) - 1) = 254) (v : ι → ℕ) {zc : ι → ℕ → ZMod p1}
     (hz : ∀ c, Canon p2 (zc c)) :
     Valid (rowB p2 v) (tr (rlen v) (rowL v zc)) (rowZ v zc) :=
-  valid_tr (valid_row hbits v hz) (fun k hk => rowZ_zero hk) (fun k hk => rowB_zero hbits hk)
+  valid_tr (valid_row hbits v hz) (fun _ hk => rowZ_zero hk) (fun _ hk => rowB_zero hbits hk)
 
 theorem row_sound (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8))
     (hbits : bitsLen ((p2 : ℤ) - 1) = 254) {A B C : ι → ℕ} (hA : ∀ c, A c < 2 ^ (32 * 8))
@@ -250,7 +253,7 @@ theorem row_sound (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8))
     valid_tr (valid_sub zero_valid (tight_valid hbits hu))
       (fun k hk => by simp [negZ, limbZ, show ¬ k < 8 by omega])
       (fun k hk => by
-        simp only [negB, subB, tightB_high p2 hbits hp2' (by omega : 7 < k)]
+        simp only [negB, subB, tightB_high p2 hbits (by omega : 7 < k)]
         simp [Bnd.sub, Bnd.zero])
   have hP2 : Valid (mulB (negB p2) (rowB p2 C)) (tr (8 + rlen C - 1) P2)
       (conv (negZ u) (rowZ C zc)) := by
@@ -267,7 +270,7 @@ theorem row_sound (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8))
   have hb2 : ∀ k, 8 + rlen C - 1 ≤ k → mulB (negB p2) (rowB p2 C) k = Bnd.zero := fun k hk =>
     mulB_zero (n := 8) (m := rlen C)
       (fun i hi => by
-        simp only [negB, subB, tightB_high p2 hbits hp2' (by omega : 7 < i)]
+        simp only [negB, subB, tightB_high p2 hbits (by omega : 7 < i)]
         simp [Bnd.sub, Bnd.zero]) (fun j hj => rowB_zero hbits hj) (by omega)
   have hzS : ∀ k, max (rlen A + rlen B - 1) (8 + rlen C - 1) ≤ k →
       conv (conv oneZ (rowZ A zc)) (rowZ B zc) k + conv (negZ u) (rowZ C zc) k = 0 := fun k hk => by

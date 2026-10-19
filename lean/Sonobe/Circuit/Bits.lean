@@ -134,7 +134,8 @@ theorem natVal_inj (n : ℕ) (a a' : ℕ → Bool) (h : natVal n a = natVal n a'
       simp [natVal, sum_range_succ]
     rw [ea, ea'] at h
     have htop : a n = a' n := by
-      cases h1 : a n <;> cases h2 : a' n <;> simp_all <;> omega
+      cases h1 : a n <;> cases h2 : a' n <;> simp_all
+      all_goals omega
     have hlow : natVal n a = natVal n a' := by
       rw [htop] at h; omega
     intro i hi

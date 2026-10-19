@@ -110,7 +110,8 @@ def cfI1 (v : AugVars p1 sN) : SecInc (ZMod p1) :=
 
 variable (W2 : WeierstrassCurve (ZMod p1)) [Short W2] [W2.IsElliptic]
   (EA : EmuArith p1 p2) (sp : SpongeCfg (ZMod p1)) (dS dT : List (ZMod p1))
-  (pm1 : ℕ → Bool) (G : ZMod p1 × ZMod p1) (StepRel : (Fin sN → ZMod p1) → (Fin sN → ZMod p1) → Prop)
+  (pm1 : ℕ → Bool) (G : ZMod p1 × ZMod p1) {SW : Type*}
+  (StepRel : (Fin sN → ZMod p1) → SW → (Fin sN → ZMod p1) → Prop)
 
 /-- The part shared by the augmented and the decider circuit: allocations of the emulated
 coordinates and of the secondary running instance, the hash `u_x = H(i, z₀, zᵢ, U, cf_U)`, and the
@@ -187,8 +188,8 @@ def AugRel (v : AugVars p1 sN) (uux : ZMod p1) : Prop :=
   ValidPP W2 v.c0W ∧ ValidPP W2 v.c1W ∧ v.cp0.OnCurve W2.a₄ W2.a₆ ∧ v.cp1.OnCurve W2.a₄ W2.a₆ ∧
   FS2Rel W2 EA G (secOf v.sa v.sE v.sW) (cfI0 v) v.cp0 v.rb0 (secOf v.o1a v.o1E v.o1W) ∧
   FS2Rel W2 EA G (secOf v.o1a v.o1E v.o1W) (cfI1 v) v.cp1 v.rb1 (secOf v.o2a v.o2E v.o2W) ∧
-  -- 3. next state
-  StepRel v.zi v.nx ∧
+  -- 3. next state: the step circuit's constraints, on some assignment `w` of its wires
+  (∃ w, StepRel v.zi w v.nx) ∧
   -- 4. uu_x = H(i+1, z₀, z_{i+1}, UU, cf_UU) with the dummies selected in the base case
   (∀ k : Fin 4, EmuAbsRel (selLimbs v.bc (v.pa (Fin.natAdd 8 k))) (v.awN k) (v.aoN k)) ∧
   (∀ k, EmuAbsRel (selLimbs v.bc (v.o2a k)) (v.awM k) (v.aoM k)) ∧
@@ -200,7 +201,7 @@ def AugRel (v : AugVars p1 sN) (uux : ZMod p1) : Prop :=
   -- 5. the secondary challenges are derived from the transcript
   ChalRel sp dT pm1 v
 
-omit [Fact p2.Prime] in
+omit [Fact p2.Prime] [Short W2] [W2.IsElliptic] in
 /-- The front part of `AugRel` is `FrontRel`. -/
 theorem AugRel.front {v : AugVars p1 sN} {uux : ZMod p1}
     (h : AugRel W2 EA sp dS dT pm1 G StepRel v uux) : FrontRel (p2 := p2) W2 sp dS dT pm1 v := by

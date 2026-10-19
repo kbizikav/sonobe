@@ -56,8 +56,8 @@ def EmuAbsRel (a : ℕ → ZMod p) (w : AbsWit p) (out : ZMod p × ZMod p) : Pro
     out.2 = if catBit (fun i t => bitsOf (w.bl i) t) (bitsOf w.bt) 253 then 1 else 0
 
 /-- Generic arithmetic of the repacking: `V = c₀ + 2^253 c₁` with `c₀ < 2^253`, `c₁ < 2`. -/
-theorem divmod_of_split {V c0 c1 : ℕ} (h : V = c0 + 2 ^ 253 * c1) (h0 : c0 < 2 ^ 253)
-    (h1 : c1 < 2) : V % 2 ^ 253 = c0 ∧ V / 2 ^ 253 = c1 := by
+theorem divmod_of_split {V c0 c1 : ℕ} (h : V = c0 + 2 ^ 253 * c1) (h0 : c0 < 2 ^ 253) :
+    V % 2 ^ 253 = c0 ∧ V / 2 ^ 253 = c1 := by
   subst h
   constructor
   · rw [Nat.add_mul_mod_self_left, Nat.mod_eq_of_lt h0]
@@ -103,7 +103,7 @@ theorem emuAbs_sound (h32 : 2 ^ 32 ≤ p) {a : ℕ → ZMod p} {w : AbsWit p} {o
     simp [natVal]
   have hc0 : natVal 253 g < 2 ^ 253 := natVal_lt _ _
   have hc1 : (if g 253 then 1 else 0 : ℕ) < 2 := by split_ifs <;> norm_num
-  obtain ⟨hmod, hdiv⟩ := divmod_of_split (hV.trans (hsplit.trans (by rw [hone]))) hc0 hc1
+  obtain ⟨hmod, hdiv⟩ := divmod_of_split (hV.trans (hsplit.trans (by rw [hone]))) hc0
   refine ⟨?_, ?_⟩
   · rw [hmod, ho1]
     unfold natVal

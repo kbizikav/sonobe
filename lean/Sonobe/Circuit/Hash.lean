@@ -5,8 +5,8 @@ import Sonobe.Circuit.Coords
 /-!
 Concrete hash and Fiat–Shamir challenge of the augmented circuit.
 
-Both the in-circuit sponge (`GriffinSpongeVar`) and the native one are the duplex sponge of
-`Transcript/Sponge`; consecutive `add` calls on an absorbing sponge are one `add` of the
+Both the in-circuit sponge (`PoseidonSpongeVar`) and the native one are the duplex sponge of
+`Transcript/Sponge` (with the permutation of `Transcript/Poseidon`); consecutive `add` calls on an absorbing sponge are one `add` of the
 concatenation. Encodings follow the `Absorbable` impls: emulated field elements as
 `[V mod 2^253, V / 2^253]`, native points as affine `(x, y)` with the identity as `(0, 0)`.
 -/

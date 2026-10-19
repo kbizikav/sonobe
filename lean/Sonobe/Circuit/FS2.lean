@@ -111,7 +111,7 @@ def FS2Rel (EA : EmuArith p1 p2) (G : ZMod p1 × ZMod p1) (U : SecVar (ZMod p1))
       O.cmE = rcb W.a₄ W.a₆ (smOut W 128 G bits wA) U.cmE ∧
       O.cmW = rcb W.a₄ W.a₆ (smOut W 128 G bits wB) U.cmW
 
-omit [Fact p2.Prime] in
+omit [Fact p2.Prime] [Short W] [W.IsElliptic] in
 theorem validPP_of {P : PP (ZMod p1)} (h : P.OnCurve W.a₄ W.a₆) (hn : ¬ P.IsZero) :
     ValidPP W P := by
   refine ⟨h, fun ⟨hy, hz⟩ => hn ⟨x_zero_of_z_zero W h hz, hy, hz⟩⟩
@@ -134,7 +134,7 @@ theorem fs2_sound [Module (ZMod p2) W.toAffine.Point]
     (EA : EmuArith p1 p2) (h2 : (2 : ZMod p1) ≠ 0)
     (hnr : ∀ e : ZMod p1, e ^ 3 + W.a₄ * e + W.a₆ ≠ 0) {r : ℕ}
     (hord : ∀ P : W.toAffine.Point, P ≠ 0 → addOrderOf P = r) (hrn : 2 ^ 128 < r)
-    (h32 : 2 ^ 32 < p1) {G : ZMod p1 × ZMod p1} (hG : W.toAffine.Equation G.1 G.2)
+    (h32 : 2 ^ 32 < p1) {G : ZMod p1 × ZMod p1}
     {U : SecVar (ZMod p1)} {I : SecInc (ZMod p1)} {π : PP (ZMod p1)} {bits : ℕ → ZMod p1}
     {O : SecVar (ZMod p1)}
     (hUu : Canon p2 U.u) (hUx : ∀ j, Canon p2 (U.x j)) (hIx : ∀ j, Canon p2 (I.x j))
@@ -149,9 +149,9 @@ theorem fs2_sound [Module (ZMod p2) W.toAffine.Point]
   have hOx : ∀ j, Canon p2 (O.x j) ∧ (limbsVal 8 (O.x j) : ℕ) =
       (limbsVal 8 (I.x j) * limbsVal 8 (rhoLimbs bits) + limbsVal 8 (U.x j)) % p2 :=
     fun j => EA.mul_sound _ _ _ _ (hIx j) (hUx j) hr1 hr2 (hmul j)
-  obtain ⟨cE, nE, pE⟩ := mulAdd_spec W h2 hnr hord (by norm_num) hrn hG (fun j hj => hb j hj) hπ hUE.1
+  obtain ⟨cE, nE, pE⟩ := mulAdd_spec W h2 hnr hord (by norm_num) hrn (fun j hj => hb j hj) hπ hUE.1
     (hUE.not_isZero W) hA
-  obtain ⟨cW, nW, pW⟩ := mulAdd_spec W h2 hnr hord (by norm_num) hrn hG (fun j hj => hb j hj) hIW.1
+  obtain ⟨cW, nW, pW⟩ := mulAdd_spec W h2 hnr hord (by norm_num) hrn (fun j hj => hb j hj) hIW.1
     hUW.1 (hUW.not_isZero W) hB
   generalize hρ : natVal 128 (fun j => decide (bits j = 1)) = ρ at hr3 pE pW ⊢
   refine ⟨hOu, fun j => (hOx j).1, by rw [hOE]; exact validPP_of W cE nE,
