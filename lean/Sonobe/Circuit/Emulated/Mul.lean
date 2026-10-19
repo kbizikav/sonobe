@@ -27,7 +27,7 @@ def MulRel (n m : ℕ) (a b z : ℕ → ZMod p) : Prop :=
 noncomputable def zpoly (a : ℕ → ZMod p) (n : ℕ) : (ZMod p)[X] := ∑ i ∈ range n, C (a i) * X ^ i
 
 theorem coeff_zpoly (a : ℕ → ZMod p) (n : ℕ) (k : ℕ) : (zpoly a n).coeff k = tr n a k := by
-  simp only [zpoly, finset_sum_coeff, coeff_C_mul_X_pow, tr]
+  simp only [zpoly, finsetSum_coeff, coeff_C_mul_X_pow, tr]
   by_cases hk : k < n
   · rw [if_pos hk, sum_eq_single k]
     · simp
@@ -47,7 +47,7 @@ theorem natDegree_zpoly_lt (a : ℕ → ZMod p) {n : ℕ} (hn : 0 < n) : (zpoly 
 
 theorem eval_zpoly (a : ℕ → ZMod p) (n : ℕ) (x : ZMod p) :
     (zpoly a n).eval x = ∑ i ∈ range n, a i * x ^ i := by
-  simp [zpoly, eval_finset_sum]
+  simp [zpoly, eval_finsetSum]
 
 /-- **The polynomial identity at `1..len` forces `z` to be the product.** -/
 theorem mulRel_sound {n m : ℕ} (hn : 0 < n) (hm : 0 < m) (hlen : n + m - 1 < p) {a b z : ℕ → ZMod p}

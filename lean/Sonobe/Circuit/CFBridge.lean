@@ -32,18 +32,18 @@ theorem cfSound_of_circuit
     (hco : T.coords = coordsOf W)
     (hcfx : ∀ n c0 c1 c2, T.cfX n c0 c1 c2 = cfVec n c0 c1 c2)
     (hsmul : ∀ (n : ℕ) (P : W.toAffine.Point), (n : ZMod p1) • P = n • P)
-    {G : ZMod p2 × ZMod p2} (hG : W.toAffine.Equation G.1 G.2)
+    {G : ZMod p2 × ZMod p2}
     (circ : Circuit (ZMod p2) 7 T.nw2 (CFWit (ZMod p2))) (hcomp : circ.Compiles T.k2.r1cs)
     (hrel : ∀ x ω, circ.rel x ω ↔
       CFRel W 128 G (x 0) (x 1) (x 2) (x 3) (x 4) (x 5) (x 6) ω)
-    (hb : W.a₆ ≠ 0) (h2 : (2 : ZMod p2) ≠ 0)
+    (h2 : (2 : ZMod p2) ≠ 0)
     (hnr : ∀ e : ZMod p2, e ^ 3 + W.a₄ * e + W.a₆ ≠ 0) {r : ℕ}
     (hord : ∀ P : W.toAffine.Point, P ≠ 0 → addOrderOf P = r)
     (hrn : 2 ^ 128 < r) (hnp : 2 ^ 128 ≤ p2) : T.CFSound := by
   intro cw cu hinc n c0 c1 c2 hn hx
   have hrel' := (hrel _ _).mp (circ.rel_of_sat hcomp hinc.1)
   rw [hx, hcfx] at hrel'
-  obtain ⟨hlt, P0, P1, P2, e0, e1, e2, hP⟩ := cf_sound_pts W hb h2 hnr hord (by norm_num) hrn hnp hG
+  obtain ⟨hlt, P0, P1, P2, e0, e1, e2, hP⟩ := cf_sound_pts W h2 hnr hord (by norm_num) hrn hnp
     (by simpa [cfVec] using hrel')
   have hval : ((n : ZMod p2)).val = n := ZMod.val_natCast_of_lt (lt_of_lt_of_le hn hnp)
   refine ⟨P0, P1, P2, ?_, ?_, ?_, ?_⟩

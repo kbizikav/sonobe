@@ -20,10 +20,32 @@ class Short (W : WeierstrassCurve F) : Prop where
 
 variable (W : WeierstrassCurve F) [Short W] [W.IsElliptic]
 
+omit [DecidableEq F] [W.IsElliptic] in
 theorem equation_short {x y : F} :
     W.toAffine.Equation x y ↔ y ^ 2 = x ^ 3 + W.a₄ * x + W.a₆ := by
   rw [Affine.equation_iff]
   simp [Short.a₁ (W := W), Short.a₂ (W := W), Short.a₃ (W := W)]
+
+/-- A curve whose nonzero points all have order `r > 2` has no 2-torsion: `x³ + a x + b` has no
+root. -/
+theorem no_two_torsion {r : ℕ} (hord : ∀ P : W.toAffine.Point, P ≠ 0 → addOrderOf P = r)
+    (hr : 2 < r) (e : F) : e ^ 3 + W.a₄ * e + W.a₆ ≠ 0 := by
+  intro h
+  have heq : W.toAffine.Equation e 0 := by
+    rw [equation_short]; linear_combination -h
+  have hns : W.toAffine.Nonsingular e 0 := equation_iff_nonsingular.mp heq
+  have hneg : -(Affine.Point.some e 0 hns) = Affine.Point.some e 0 hns := by
+    rw [Affine.Point.neg_some]
+    congr 1
+    simp [Short.a₁ (W := W), Short.a₃ (W := W)]
+  have h2 : 2 • Affine.Point.some e 0 hns = 0 := by
+    rw [two_nsmul]
+    nth_rewrite 1 [← hneg]
+    exact neg_add_cancel _
+  have hd := addOrderOf_dvd_of_nsmul_eq_zero h2
+  rw [hord _ (Affine.Point.some_ne_zero hns)] at hd
+  have := Nat.le_of_dvd (by norm_num) hd
+  omega
 
 /-- `add_unchecked` (non_zero_affine.rs:46): the constraints `λ(x₂-x₁) = y₂-y₁`,
 `x₃ = λ² - x₁ - x₂`, `y₃ = λ(x₁ - x₃) - y₁` compute the group sum when `x₁ ≠ x₂`. -/

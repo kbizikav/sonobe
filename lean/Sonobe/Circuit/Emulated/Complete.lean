@@ -77,7 +77,7 @@ theorem lt_complete {N : ℕ} (hp : 2 ^ 32 < p) {a : ℕ → ZMod p} {c : ℕ �
     · rw [if_pos hki, one_mul]
       have h := hrest i hki hi
       simp only at h
-      rw [← h]; simp [ZMod.natCast_zmod_val]
+      rw [← h]; simp
     · rw [if_neg hki, zero_mul]
   · rw [hpre N le_rfl, if_pos hkN]
   · rw [hsum]
@@ -95,10 +95,12 @@ variable {p1 p2 : ℕ} [Fact p1.Prime] [Fact p2.Prime]
 /-- The canonical 32-bit limbs of a value of the emulated field. -/
 def limbsOf (p1 : ℕ) {p2 : ℕ} (v : ZMod p2) : ℕ → ZMod p1 := fun i => ((mlimb v.val i : ℕ) : ZMod p1)
 
+omit [Fact (Nat.Prime p1)] [Fact (Nat.Prime p2)] in
 theorem limbsOf_val (h32 : 2 ^ 32 ≤ p1) (v : ZMod p2) (i : ℕ) :
     (limbsOf p1 v i).val = mlimb v.val i :=
   ZMod.val_natCast_of_lt (lt_of_lt_of_le (mlimb_lt _ _) h32)
 
+omit [Fact (Nat.Prime p1)] in
 theorem limbsVal_limbsOf (h32 : 2 ^ 32 ≤ p1) (hp2 : p2 ≤ 2 ^ (32 * 8)) (v : ZMod p2) :
     limbsVal 8 (limbsOf p1 v) = v.val := by
   unfold limbsVal
@@ -106,11 +108,13 @@ theorem limbsVal_limbsOf (h32 : 2 ^ 32 ≤ p1) (hp2 : p2 ≤ 2 ^ (32 * 8)) (v : 
   rw [sum_mlimb]
   exact Nat.mod_eq_of_lt (lt_of_lt_of_le (ZMod.val_lt v) hp2)
 
+omit [Fact (Nat.Prime p1)] in
 theorem canon_limbsOf (h32 : 2 ^ 32 ≤ p1) (hp2 : p2 ≤ 2 ^ (32 * 8)) (v : ZMod p2) :
     Canon p2 (limbsOf p1 v) :=
   ⟨fun i _ => by rw [limbsOf_val h32]; exact mlimb_lt _ _,
     by rw [limbsVal_limbsOf h32 hp2]; exact ZMod.val_lt v⟩
 
+omit [Fact (Nat.Prime p1)] in
 theorem emuV_limbsOf (h32 : 2 ^ 32 ≤ p1) (hp2 : p2 ≤ 2 ^ (32 * 8)) (v : ZMod p2) :
     emuV p2 (limbsOf p1 v) = v := by
   unfold emuV; rw [limbsVal_limbsOf h32 hp2]; exact ZMod.natCast_zmod_val v

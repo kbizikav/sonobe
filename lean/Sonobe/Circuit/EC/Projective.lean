@@ -17,10 +17,11 @@ variable {F : Type*} [Field F] (W : WeierstrassCurve F) [Short W] [W.IsElliptic]
 /-- The group element represented by a projective triple (`0` for `z = 0` and for non-curve data;
 only meaningful for triples with `OnCurve ∧ ¬IsZero`). -/
 noncomputable def PP.pt (P : PP F) : W.toAffine.Point :=
-  if hz : P.z ≠ 0 then
+  if _hz : P.z ≠ 0 then
     if h : W.toAffine.Equation (P.x / P.z) (P.y / P.z) then Point.mk h else 0
   else 0
 
+omit [W.IsElliptic] in
 theorem equation_of_onCurve {P : PP F} (hz : P.z ≠ 0) (h : P.OnCurve W.a₄ W.a₆) :
     W.toAffine.Equation (P.x / P.z) (P.y / P.z) := by
   rw [equation_short]
@@ -28,10 +29,12 @@ theorem equation_of_onCurve {P : PP F} (hz : P.z ≠ 0) (h : P.OnCurve W.a₄ W.
   field_simp
   linear_combination h
 
+omit [Short W] in
 theorem pt_of_equation {P : PP F} (hz : P.z ≠ 0) (h : W.toAffine.Equation (P.x / P.z) (P.y / P.z)) :
     P.pt W = Point.mk h := by
   simp [PP.pt, hz, h]
 
+omit [Short W] in
 theorem pt_of_z_zero {P : PP F} (hz : P.z = 0) : P.pt W = 0 := by simp [PP.pt, hz]
 
 theorem onCurve_smul {a b c : F} (hc : c ≠ 0) (P : PP F) :
@@ -48,6 +51,7 @@ theorem onCurve_smul {a b c : F} (hc : c ≠ 0) (P : PP F) :
 theorem isZero_smul {c : F} (hc : c ≠ 0) (P : PP F) : (P.smul c).IsZero ↔ P.IsZero := by
   simp [PP.IsZero, PP.smul, hc]
 
+omit [Short W] in
 theorem pt_smul {c : F} (hc : c ≠ 0) (P : PP F) : (P.smul c).pt W = P.pt W := by
   by_cases hz : P.z = 0
   · rw [pt_of_z_zero W hz, pt_of_z_zero W (by simp [PP.smul, hz])]
@@ -61,10 +65,12 @@ theorem pt_smul {c : F} (hc : c ≠ 0) (P : PP F) : (P.smul c).pt W = P.pt W := 
       simp only [e1, e2]
     · simp [PP.pt, hz, hz', h, e1, e2]
 
+omit [Short W] [W.IsElliptic] in
 theorem onCurve_of_ratio {R : PP F} {x₃ y₃ : F} (hx : R.x = x₃ * R.z) (hy : R.y = y₃ * R.z)
     (h : y₃ ^ 2 = x₃ ^ 3 + W.a₄ * x₃ + W.a₆) : R.OnCurve W.a₄ W.a₆ := by
   simp only [PP.OnCurve]; rw [hx, hy]; linear_combination R.z ^ 3 * h
 
+omit [Short W] in
 theorem pt_of_ratio {R : PP F} {x₃ y₃ : F} (hz : R.z ≠ 0) (hx : R.x = x₃ * R.z)
     (hy : R.y = y₃ * R.z) (h₃ : W.toAffine.Equation x₃ y₃) : R.pt W = Point.mk h₃ := by
   have e1 : R.x / R.z = x₃ := by rw [hx]; field_simp
@@ -159,11 +165,13 @@ theorem PP.eq_norm {P : PP F} (hz : P.z ≠ 0) : P = (PP.mk (P.x / P.z) (P.y / P
   simp only [PP.smul, PP.mk.injEq] at *
   refine ⟨by field_simp, by field_simp, by ring⟩
 
+omit [Short W] [W.IsElliptic] in
 theorem x_zero_of_z_zero {P : PP F} (h : P.OnCurve W.a₄ W.a₆) (hz : P.z = 0) : P.x = 0 := by
   simp only [PP.OnCurve, hz] at h
   have : P.x ^ 3 = 0 := by linear_combination -h
   exact pow_eq_zero_iff (by norm_num) |>.mp this
 
+omit [Short W] [W.IsElliptic] in
 theorem y_ne_zero {P : PP F} (h : P.OnCurve W.a₄ W.a₆) (hz : P.z = 0) (hn : ¬ P.IsZero) :
     P.y ≠ 0 := by
   intro hy
@@ -182,6 +190,7 @@ section Spec2
 variable [DecidableEq F] (h2 : (2 : F) ≠ 0) (hnr : ∀ e : F, e ^ 3 + W.a₄ * e + W.a₆ ≠ 0)
 include h2 hnr
 
+omit h2 [Short W] in
 /-- Point at infinity plus a finite point, with the finite point written as a scaled normalised
 triple. -/
 theorem rcb_inf_fin {y x₂ y₂ c : F} (hy : y ≠ 0) (hc : c ≠ 0)
@@ -239,7 +248,7 @@ theorem rcb_spec {P Q : PP F} (hP : P.OnCurve W.a₄ W.a₆) (hQ : Q.OnCurve W.a
     have hQ' : (PP.mk x₂ y₂ 1).OnCurve W.a₄ W.a₆ := by
       rw [← onCurve_smul hc]; rw [← hQe]; exact hQ
     rw [hQe, hP']
-    exact rcb_inf_fin W h2 hnr hy1 hc hQ'
+    exact rcb_inf_fin W hnr hy1 hc hQ'
   · -- P finite, Q at infinity
     have hy2 := y_ne_zero W hQ hQz nQ
     have hx2 := x_zero_of_z_zero W hQ hQz
@@ -252,7 +261,7 @@ theorem rcb_spec {P Q : PP F} (hP : P.OnCurve W.a₄ W.a₆) (hQ : Q.OnCurve W.a
     have hP'' : (PP.mk x₁ y₁ 1).OnCurve W.a₄ W.a₆ := by
       rw [← onCurve_smul hc]; rw [← hPe]; exact hP
     rw [hPe, hQ', rcb_comm, add_comm]
-    exact rcb_inf_fin W h2 hnr hy2 hc hP''
+    exact rcb_inf_fin W hnr hy2 hc hP''
   · -- both finite
     obtain ⟨c, hcdef⟩ : ∃ c, c = P.z := ⟨_, rfl⟩
     obtain ⟨d, hddef⟩ : ∃ d, d = Q.z := ⟨_, rfl⟩

@@ -44,6 +44,7 @@ theorem tight_canon [Fact p2.Prime] (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ 
   have h2 : ∑ i ∈ range 8, mlimb p2 i * 2 ^ (32 * i) = p2 := e
   simpa [h2] using this.2
 
+omit [Fact (Nat.Prime p1)] in
 theorem emuV_val [Fact p2.Prime] {a : ℕ → ZMod p1} (h : Canon p2 a) :
     (emuV p2 a).val = limbsVal 8 a := ZMod.val_natCast_of_lt h.2
 

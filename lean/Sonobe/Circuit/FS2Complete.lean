@@ -27,6 +27,7 @@ structure EmuArith.Complete (EA : EmuArith p1 p2) : Prop where
 
 variable (W : WeierstrassCurve (ZMod p1)) [Short W] [W.IsElliptic]
 
+omit [Fact (Nat.Prime p2)] in
 theorem fs2_complete (EA : EmuArith p1 p2) (hEA : EA.Complete) (h2 : (2 : ZMod p1) ≠ 0)
     (hnr : ∀ e : ZMod p1, e ^ 3 + W.a₄ * e + W.a₆ ≠ 0) {r : ℕ}
     (hord : ∀ P : W.toAffine.Point, P ≠ 0 → addOrderOf P = r) (hrn : 2 ^ 128 < r)
@@ -34,7 +35,7 @@ theorem fs2_complete (EA : EmuArith p1 p2) (hEA : EA.Complete) (h2 : (2 : ZMod p
     {U : SecVar (ZMod p1)} {I : SecInc (ZMod p1)} {π : PP (ZMod p1)} {bits : ℕ → ZMod p1}
     (hb : ∀ j < 128, IsBool (bits j))
     (hUu : Canon p2 U.u) (hUx : ∀ j, Canon p2 (U.x j)) (hIx : ∀ j, Canon p2 (I.x j))
-    (hUE : ValidPP W U.cmE) (hUW : ValidPP W U.cmW) (hIW : ValidPP W I.cmW)
+    (hIW : ValidPP W I.cmW)
     (hπ : π.OnCurve W.a₄ W.a₆) :
     ∃ O : SecVar (ZMod p1), FS2Rel W EA G U I π bits O := by
   obtain ⟨hr1, hr2, hr3⟩ := rhoLimbs_val h32 bits hb

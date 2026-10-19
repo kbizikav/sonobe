@@ -75,6 +75,7 @@ noncomputable def ecAdd (a b : ℕ × ℕ) : Option (ℕ × ℕ) :=
 noncomputable def ecMul (a : ℕ × ℕ) (s : ℕ) : Option (ℕ × ℕ) :=
   (decodeG1 W a).map fun P => encodeG1 W (s • P)
 
+omit [Short W] in
 theorem decode_some {a : ℕ × ℕ} {P : W.toAffine.Point} (h : decodeG1 W a = some P) :
     a.1 < q ∧ a.2 < q ∧ encodeG1 W P = a := by
   unfold decodeG1 at h

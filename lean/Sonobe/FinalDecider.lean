@@ -44,7 +44,7 @@ theorem flatten_ofFn_singleton {α : Type*} : ∀ {n : ℕ} (f : Fin n → α),
 
 theorem xList_map {PW : Type*} (cd : Calldata sN PW) (pts : Fin 6 → ℕ × ℕ) :
     (xList cd pts).map (fun w => (w : ZMod p1)) = (pubOfCd cd pts : DecPub p1 sN).toList := by
-  simp [xList, DecPub.toList, pubOfCd, List.map_flatten, List.flatMap, Function.comp_def, flatten_ofFn_singleton]
+  simp [xList, DecPub.toList, pubOfCd, List.flatMap, Function.comp_def, flatten_ofFn_singleton]
 
 theorem encE_inj (hp1 : 2 ^ 253 < p1) (hp2 : p2 ≤ 2 ^ 254) {v v' : ZMod p2}
     (h : encE p1 p2 v = encE p1 p2 v') : v = v' := by
@@ -123,8 +123,6 @@ theorem evm_decider_sound
     -- identification of the abstract model with the concrete hash, challenge and wiring
     (hco : T.coords = coordsOf W1) (hhs : T.hs = hsC W2 sp dS) (hch : T.ch1n = ch1nC sp dT)
     (hcfx : ∀ n c0 c1 c2, T.cfX n c0 c1 c2 = cfVec n c0 c1 c2)
-    (hsmul1 : ∀ (n : ℕ) (P : W1.toAffine.Point), (n : ZMod p1) • P = n • P)
-    (hsmul2 : ∀ (n : ℕ) (P : W2.toAffine.Point), (n : ZMod p2) • P = n • P)
     -- the augmented and the CycleFold circuit
     (circA : Circuit (ZMod p1) 1 T.nw1 (AugVars p1 sN))
     (hsatA : ∀ x w, T.k1.r1cs.Sat x w → circA.rel x (circA.decode w))
@@ -151,12 +149,10 @@ theorem evm_decider_sound
     (decodeProof : PWd → Option (LegoGroth16.Proof W1.toAffine.Point G₂))
     -- curve and field facts
     (hb1 : W1.a₆ ≠ 0) (h2a : (2 : ZMod p2) ≠ 0)
-    (hnr1 : ∀ e : ZMod p2, e ^ 3 + W1.a₄ * e + W1.a₆ ≠ 0) {r1 : ℕ}
+    {r1 : ℕ}
     (hord1 : ∀ P : W1.toAffine.Point, P ≠ 0 → addOrderOf P = r1) (hrn1 : 2 ^ 128 < r1)
-    (hG1 : W1.toAffine.Equation G1.1 G1.2)
-    (h2b : (2 : ZMod p1) ≠ 0) (hnr2 : ∀ e : ZMod p1, e ^ 3 + W2.a₄ * e + W2.a₆ ≠ 0) {r2 : ℕ}
+    (h2b : (2 : ZMod p1) ≠ 0) {r2 : ℕ}
     (hord2 : ∀ P : W2.toAffine.Point, P ≠ 0 → addOrderOf P = r2) (hrn2 : 2 ^ 252 < r2)
-    (hG2 : W2.toAffine.Equation G2.1 G2.2)
     (hp2' : 2 ^ 128 ≤ p2)
     (hp1b : 2 ^ 253 < p1) (hp2b : p2 ≤ 2 ^ 254)
     (hpm : natVal 254 pm1 = p1 - 1)
@@ -175,11 +171,17 @@ theorem evm_decider_sound
       (fun k => (cd.zi k : ZMod p1)) (decOutOf W1 W2 T cd (circD.decode wD) o) E) :
     ∃ ws : List SW, ws.length = cd.i ∧
       Chain StepRel (fun k => (cd.z0 k : ZMod p1)) ws (fun k => (cd.zi k : ZMod p1)) := by
+  have hsmul1 : ∀ (n : ℕ) (P : W1.toAffine.Point), (n : ZMod p1) • P = n • P :=
+    fun n P => Nat.cast_smul_eq_nsmul _ n P
+  have hsmul2 : ∀ (n : ℕ) (P : W2.toAffine.Point), (n : ZMod p2) • P = n • P :=
+    fun n P => Nat.cast_smul_eq_nsmul _ n P
+  have hnr1 := no_two_torsion W1 hord1 (lt_of_le_of_lt (by norm_num) hrn1)
+  have hnr2 := no_two_torsion W2 hord2 (lt_of_le_of_lt (by norm_num) hrn2)
   have hrn2' : 2 ^ 128 < r2 :=
     lt_of_le_of_lt (Nat.pow_le_pow_right (by norm_num) (by norm_num)) hrn2
   have hA := augSound_of_circuit W1 W2 (EmuArith.concrete hp hp2 hbits) sp dS dT pm1 G2 StepRel T
-    hco hhs hch hcfx hsmul2 circA hsatA hrelA h2b hnr2 hord2 hrn2' hp hp2 hp2' hG2 hpm
-  have hC := cfSound_of_circuit W1 T hco hcfx hsmul1 hG1 circC hcompC hrelC hb1 h2a hnr1 hord1
+    hco hhs hch hcfx hsmul2 circA hsatA hrelA h2b hnr2 hord2 hrn2' hp hp2 hp2' hpm
+  have hC := cfSound_of_circuit W1 T hco hcfx hsmul1 circC hcompC hrelC h2a hnr1 hord1
     hrn1 hp2'
   rcases hacc with ⟨hi0, hz⟩ | ⟨hi0, ce, cw, hce, hcw, hvp⟩
   · refine ⟨[], by simp [hi0], ?_⟩

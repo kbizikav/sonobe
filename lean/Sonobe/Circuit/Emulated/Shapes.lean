@@ -38,23 +38,27 @@ section Tight
 variable (p2) (hbits : bitsLen ((p2 : ℤ) - 1) = 254) (hp2 : (1 : ℤ) < p2)
 include hbits hp2
 
+omit [Fact (Nat.Prime p2)] hp2 in
 theorem tightLen : max (bitsLen 0) (bitsLen ((p2 : ℤ) - 1)) = 254 := by
   simp [bitsLen, Nat.size_zero] at hbits ⊢; omega
 
+omit [Fact (Nat.Prime p2)] in
 theorem tightB_low {i : ℕ} (hi : i < 7) : tightB p2 i = ⟨0, 2 ^ 32 - 1⟩ := by
-  have hlen := tightLen p2 hbits hp2
+  have hlen := tightLen p2 hbits
   simp only [tightB, computeBounds, hlen, show 254 / 32 = 7 by norm_num, hi, if_true]
   simp [hp2]
 
+omit [Fact (Nat.Prime p2)] hp2 in
 theorem tightB_top : tightB p2 7 = ⟨0, -((-((p2 : ℤ) - 1)) / 2 ^ 224)⟩ := by
-  have hlen := tightLen p2 hbits hp2
+  have hlen := tightLen p2 hbits
   simp only [tightB, computeBounds, hlen, show 254 / 32 = 7 by norm_num,
     show 254 % 32 = 30 by norm_num, lt_irrefl, if_false, true_and, ne_eq, OfNat.ofNat_ne_zero,
     not_false_eq_true, if_true]
   norm_num
 
+omit [Fact (Nat.Prime p2)] hp2 in
 theorem tightB_high {i : ℕ} (hi : 7 < i) : tightB p2 i = Bnd.zero := by
-  have hlen := tightLen p2 hbits hp2
+  have hlen := tightLen p2 hbits
   simp only [tightB, computeBounds, hlen, show 254 / 32 = 7 by norm_num]
   rw [if_neg (by omega), if_neg (by omega)]
 
@@ -80,7 +84,7 @@ theorem tight_valid (hbits : bitsLen ((p2 : ℤ) - 1) = 254) {a : ℕ → ZMod p
     exact ⟨by positivity, by omega⟩
   · by_cases h8 : i = 7
     · subst h8
-      rw [tightB_top p2 hbits hp2]
+      rw [tightB_top p2 hbits]
       simp only [limbZ, show 7 < 8 by norm_num, if_true, Bnd.Mem]
       refine ⟨by positivity, ?_⟩
       have h1 : (a 7).val * 2 ^ (32 * 7) ≤ limbsVal 8 a := by
@@ -99,7 +103,7 @@ theorem tight_valid (hbits : bitsLen ((p2 : ℤ) - 1) = 254) {a : ℕ → ZMod p
           (Int.ediv_lt_iff_lt_mul hd).mpr (by nlinarith)
         omega
       linarith
-    · rw [tightB_high p2 hbits hp2 (by omega)]
+    · rw [tightB_high p2 hbits (by omega)]
       simp only [limbZ, show ¬ i < 8 by omega, if_false, Bnd.Mem, Bnd.zero]
       exact ⟨le_rfl, le_rfl⟩
 
@@ -151,7 +155,7 @@ theorem loose_valid (hp1 : 2 ^ 32 ≤ p1) {lbNeg ubPos : Bool} {n : ℕ}
           · exact h
         subst hu
         simp only [zero_ne_one, if_false]
-        split_ifs <;> constructor <;> first | omega | positivity
+        split_ifs <;> constructor <;> omega
       · subst h0
         have hl : lbNeg = true := by
           by_contra hl
@@ -160,7 +164,7 @@ theorem loose_valid (hp1 : 2 ^ 32 ≤ p1) {lbNeg ubPos : Bool} {n : ℕ}
           simp at this
         subst hl
         simp only [if_true]
-        split_ifs <;> constructor <;> first | omega | positivity
+        split_ifs <;> constructor <;> omega
     · simp only [tr, hi, if_true]
       rcases hneg01 with h0 | h0
       · subst h0; simp [h4 i hi]

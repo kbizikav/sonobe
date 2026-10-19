@@ -201,7 +201,7 @@ def AugRel (v : AugVars p1 sN) (uux : ZMod p1) : Prop :=
   -- 5. the secondary challenges are derived from the transcript
   ChalRel sp dT pm1 v
 
-omit [Fact p2.Prime] in
+omit [Fact p2.Prime] [Short W2] [W2.IsElliptic] in
 /-- The front part of `AugRel` is `FrontRel`. -/
 theorem AugRel.front {v : AugVars p1 sN} {uux : ZMod p1}
     (h : AugRel W2 EA sp dS dT pm1 G StepRel v uux) : FrontRel (p2 := p2) W2 sp dS dT pm1 v := by

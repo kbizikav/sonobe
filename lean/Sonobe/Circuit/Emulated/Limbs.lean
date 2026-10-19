@@ -67,7 +67,7 @@ noncomputable def limbPoly (z : ℕ → ℤ) (n : ℕ) : ℤ[X] := ∑ i ∈ ran
 
 theorem coeff_limbPoly (z : ℕ → ℤ) (n : ℕ) (hz : ∀ i, n ≤ i → z i = 0) (k : ℕ) :
     (limbPoly z n).coeff k = z k := by
-  simp only [limbPoly, finset_sum_coeff, coeff_C_mul_X_pow]
+  simp only [limbPoly, finsetSum_coeff, coeff_C_mul_X_pow]
   by_cases hk : k < n
   · rw [sum_eq_single k]
     · simp
@@ -81,7 +81,7 @@ theorem coeff_limbPoly (z : ℕ → ℤ) (n : ℕ) (hz : ∀ i, n ≤ i → z i 
 
 theorem eval_limbPoly (z : ℕ → ℤ) (n : ℕ) (x : ℤ) :
     (limbPoly z n).eval x = ∑ i ∈ range n, z i * x ^ i := by
-  simp [limbPoly, eval_finset_sum]
+  simp [limbPoly, eval_finsetSum]
 
 theorem natDegree_limbPoly_lt (z : ℕ → ℤ) {n : ℕ} (hn : 0 < n) :
     (limbPoly z n).natDegree < n := by

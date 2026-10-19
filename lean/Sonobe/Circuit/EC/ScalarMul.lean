@@ -18,6 +18,7 @@ variable {F : Type*} [Field F] (W : WeierstrassCurve F) [Short W] [W.IsElliptic]
 noncomputable def ptOf (xy : F × F) : W.toAffine.Point :=
   if h : W.toAffine.Equation xy.1 xy.2 then Point.mk h else 0
 
+omit [Short W] in
 theorem ptOf_eq {xy : F × F} (h : W.toAffine.Equation xy.1 xy.2) : ptOf W xy = Point.mk h := by
   simp [ptOf, h]
 
@@ -70,6 +71,7 @@ section Chain
 variable (q : W.toAffine.Point) {r : ℕ} (hq : addOrderOf q = r)
 include hq
 
+omit [Short W] in
 /-- The incomplete addition never meets the exceptional case: the abscissae differ. -/
 theorem x_ne_of_nsmul {P₁ P₂ : F × F} (h₁ : W.toAffine.Equation P₁.1 P₁.2)
     (h₂ : W.toAffine.Equation P₂.1 P₂.2) {n₁ n₂ : ℕ} (e₁ : ptOf W P₁ = n₁ • q)
@@ -102,6 +104,7 @@ theorem x_ne_of_nsmul {P₁ P₂ : F × F} (h₁ : W.toAffine.Equation P₁.1 P�
     have := Nat.le_of_dvd (by omega) hd
     omega
 
+omit hq in
 /-- One doubling step `m ↦ 2 m` of the chain. -/
 theorem dbl_step (h2 : (2 : F) ≠ 0) (hnr : ∀ e : F, e ^ 3 + W.a₄ * e + W.a₆ ≠ 0) {i : ℕ}
     {m m' : F × F} {l : F} (he : W.toAffine.Equation m.1 m.2) (hp : ptOf W m = 2 ^ i • q)
@@ -137,7 +140,7 @@ theorem chain_sound (h2 : (2 : F) ≠ 0) (hnr : ∀ e : F, e ^ 3 + W.a₄ * e + 
     · exact (hstep (i + 1) (by omega) hi).2.2
   have dbl : ∀ i < n, W.toAffine.Equation (m i).1 (m i).2 → ptOf W (m i) = 2 ^ i • q →
       W.toAffine.Equation (m (i + 1)).1 (m (i + 1)).2 ∧ ptOf W (m (i + 1)) = 2 ^ (i + 1) • q :=
-    fun i hi he hp => dbl_step W q hq h2 hnr he hp (hD i hi)
+    fun i hi he hp => dbl_step W q h2 hnr he hp (hD i hi)
   intro i
   induction i with
   | zero =>
@@ -202,17 +205,20 @@ theorem selPP_zero (t f : PP F) : selPP 0 t f = f := by simp [selPP]
 
 theorem zeroPP_onCurve (a b : F) : (zeroPP : PP F).OnCurve a b := by simp [zeroPP, PP.OnCurve]
 theorem zeroPP_not_isZero : ¬ (zeroPP : PP F).IsZero := by simp [zeroPP, PP.IsZero]
+omit [Short W] in
 theorem zeroPP_pt : (zeroPP : PP F).pt W = 0 := pt_of_z_zero W rfl
 
 /-- A normalised finite point `(x, y, 1)`. -/
 def finPP (xy : F × F) : PP F := ⟨xy.1, xy.2, 1⟩
 
+omit [W.IsElliptic] in
 theorem finPP_onCurve (hE : W.toAffine.Equation xy.1 xy.2) : (finPP xy).OnCurve W.a₄ W.a₆ := by
   have := (equation_short W).mp hE
   simp only [finPP, PP.OnCurve]; linear_combination this
 
 theorem finPP_not_isZero (xy : F × F) : ¬ (finPP xy).IsZero := by simp [finPP, PP.IsZero]
 
+omit [Short W] in
 theorem finPP_pt (hE : W.toAffine.Equation xy.1 xy.2) : (finPP xy).pt W = ptOf W xy := by
   rw [pt_of_equation W (by simp [finPP]) (by simpa [finPP] using hE), ptOf_eq W hE]
   simp [finPP]

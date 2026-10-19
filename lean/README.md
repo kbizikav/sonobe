@@ -53,12 +53,20 @@ sponge the proofs use, for any permutation (`SpongeCfg.absorb_eq_add`, `squeeze_
   witness that `decode` maps back to the assignment); that the
   committed variables of the CP-SNARK are `WW.e` then `WW.w`; that the step circuit's constraints
   in the augmented circuit are `StepRel` on its wires, independent of `i`.
-* **Math facts**: prime group orders above `2^128`/`2^252`, no 2-torsion, `b ≠ 0`, field-size
-  inequalities. In `Deployment` the numeric ones are proved; the primality of `r` and `q`, the
-  scalar actions on the curve groups, their prime orders and the absence of 2-torsion stay
-  hypotheses.
+* **Math facts**: prime group orders above `2^128`/`2^252`, `b ≠ 0`, field-size inequalities (the
+  absence of 2-torsion follows from the orders, `no_two_torsion`). In `Deployment` the field orders
+  are prime by Pratt certificates (`Primes`) and the numeric facts are proved; the scalar actions on
+  the curve groups and their prime orders stay hypotheses.
 
-Everything is an explicit hypothesis of the theorems that use it; there are no axioms.
+Everything is an explicit hypothesis of the theorems that use it; there are no axioms, and
+`Axioms.lean` pins the axioms of the headline theorems with `#guard_msgs`.
+
+## Not proved
+
+* That the hypotheses of `evm_decider_sound` — acceptance, `ExtractsAt` and `ExtractionOK` for the
+  decider witness's values — hold together for an honest call. It needs completeness of the decider
+  circuit (`DecRel ⇒` R1CS satisfiable) and of the contract (`foldC`, the LegoGroth16 check at the
+  level of words); `ivc_complete_of_circuits` shows it at the level of `DeciderRel`.
 
 ## Layout
 
@@ -70,7 +78,8 @@ Everything is an explicit hypothesis of the theorems that use it; there are no a
 | `EVM` | The generated Solidity verifier at the level of 256-bit words |
 | `Final*.lean` | The three headline theorems above |
 | `Hypotheses.lean` | The run hypotheses in a non-degenerate model |
-| `Deployment.lean` | The headline theorems for the deployed curves, sponge and domains |
+| `Deployment.lean`, `Primes.lean` | The headline theorems for the deployed curves, sponge and domains; Pratt certificates of `r`, `q` |
+| `Axioms.lean` | The axioms of the headline theorems, checked by `#guard_msgs` |
 
 ## Build
 

@@ -1,6 +1,7 @@
 import Sonobe.FinalDecider
 import Sonobe.FinalCompleteness
 import Sonobe.Transcript.Poseidon
+import Sonobe.Primes
 
 /-!
 **The deployment.** BN254 is the primary curve and Grumpkin the secondary; the transcript and the
@@ -12,9 +13,9 @@ zERC20's `POSEIDON4`); the hash and the transcript are separated by the domains 
 * `ivc_complete_deployed` — `ivc_complete_of_circuits` for them: honest runs are accepted and meet
   the run hypotheses.
 
-The numeric facts are proved. Hypotheses that remain: the primality of the two field orders, the
-scalar actions on the curve groups, their prime orders and the absence of 2-torsion, and the circuit
-models, keys, CP-SNARK and run hypotheses of the general theorems.
+The field orders are prime by Pratt certificates (`Primes`) and the numeric facts are proved.
+Hypotheses that remain: the scalar actions on the curve groups and their prime orders, and the
+circuit models, keys, CP-SNARK and run hypotheses of the general theorems.
 -/
 
 namespace Sonobe
@@ -61,7 +62,9 @@ theorem hbits : bitsLen ((q : ℤ) - 1) = 254 := by
   rw [bitsLen, e]
   exact le_antisymm (Nat.size_le.mpr (by norm_num [q])) (Nat.lt_size.mpr (by norm_num [q]))
 
-variable [Fact r.Prime] [Fact q.Prime]
+instance : Fact r.Prime := ⟨Primes.prime_r⟩
+
+instance : Fact q.Prime := ⟨Primes.prime_q⟩
 
 /-! ### The curves -/
 
@@ -101,13 +104,11 @@ def g1 : ZMod q × ZMod q := (1, 2)
 `scalar_mul_le` in the augmented circuit. -/
 def g2 : ZMod r × ZMod r := (1, 17631683881184975370165255887551781615748388533673675138860)
 
-omit [Fact r.Prime] in
 theorem g1_on : bn254.toAffine.Equation g1.1 g1.2 := by
   rw [equation_short]
   simp only [g1, bn254]
   norm_num
 
-omit [Fact q.Prime] in
 theorem g2_on : grumpkin.toAffine.Equation g2.1 g2.2 := by
   rw [equation_short]
   simp only [g2, grumpkin]
@@ -138,7 +139,6 @@ def sponge : SpongeCfg (ZMod r) := (Poseidon.circom5 : Poseidon.Params (ZMod r) 
 /-- The emulated arithmetic of `Fq` over `Fr`, derived from its constraints. -/
 noncomputable def emu : EmuArith r q := EmuArith.concrete hp hq hbits
 
-omit [Fact q.Prime] in
 theorem castOK_of_lt {N : ℕ} (hN : N < r) : CastOK (ZMod r) N := by
   intro n hn h
   by_contra h0
@@ -161,8 +161,6 @@ theorem evm_decider_sound_deployed
     -- identification of the abstract model with the concrete hash, challenge and wiring
     (hco : T.coords = coordsOf bn254) (hhs : T.hs = hsC grumpkin sponge dS)
     (hch : T.ch1n = ch1nC sponge dT) (hcfx : ∀ n c0 c1 c2, T.cfX n c0 c1 c2 = cfVec n c0 c1 c2)
-    (hsmul1 : ∀ (n : ℕ) (P : bn254.toAffine.Point), (n : ZMod r) • P = n • P)
-    (hsmul2 : ∀ (n : ℕ) (P : grumpkin.toAffine.Point), (n : ZMod q) • P = n • P)
     -- the augmented and the CycleFold circuit
     (circA : Circuit (ZMod r) 1 T.nw1 (AugVars r sN))
     (hsatA : ∀ x w, T.k1.r1cs.Sat x w → circA.rel x (circA.decode w))
@@ -189,10 +187,8 @@ theorem evm_decider_sound_deployed
     (e : bn254.toAffine.Point →ₗ[ZMod r] G₂ →ₗ[ZMod r] G_T)
     (vk : LegoGroth16.VK bn254.toAffine.Point G₂ (2 * sN + 26) 2)
     (decodeProof : PWd → Option (LegoGroth16.Proof bn254.toAffine.Point G₂))
-    -- the curve groups: prime order, no 2-torsion
-    (hnr1 : ∀ e : ZMod q, e ^ 3 + bn254.a₄ * e + bn254.a₆ ≠ 0)
+    -- the curve groups have prime order
     (hord1 : ∀ P : bn254.toAffine.Point, P ≠ 0 → addOrderOf P = r)
-    (hnr2 : ∀ e : ZMod r, e ^ 3 + grumpkin.a₄ * e + grumpkin.a₆ ≠ 0)
     (hord2 : ∀ P : grumpkin.toAffine.Point, P ≠ 0 → addOrderOf P = q)
     -- the call
     (cd : Calldata sN PWd) (hacc : DeciderAccepts bn254 e vk decodeProof cd)
@@ -219,9 +215,9 @@ theorem evm_decider_sound_deployed
     show (3 : ZMod q) ≠ 0
     exact_mod_cast natCast_ne_zero (n := q) (by norm_num) (by norm_num [q])
   exact evm_decider_sound bn254 grumpkin sponge dS dT rm1 g1 g2 StepRel hp hq hbits T hco hhs hch
-    hcfx hsmul1 hsmul2 circA hsatA hrelA circC hcompC hrelC PEc PWc pph hpph hkE hkW hgE hhE hgW hhW
-    circD RD hsatD hrelD e vk decodeProof h3 h2q hnr1 hord1 (by norm_num [r]) g1_on h2r hnr2 hord2
-    (by norm_num [q]) g2_on (by norm_num [q]) (by norm_num [r]) (by norm_num [q]) rm1_val
+    hcfx circA hsatA hrelA circC hcompC hrelC PEc PWc pph hpph hkE hkW hgE hhE hgW hhW
+    circD RD hsatD hrelD e vk decodeProof h3 h2q hord1 (by norm_num [r]) h2r hord2
+    (by norm_num [q]) (by norm_num [q]) (by norm_num [r]) (by norm_num [q]) rm1_val
     (castOK_of_lt hi) cd le_rfl hacc wD o hcp E hE
 
 /-- **Completeness of the deployment, with the run's hypotheses**: for every chain of `n < r` steps
@@ -236,8 +232,6 @@ theorem ivc_complete_deployed
     (hch : T.ch1n = ch1nC sponge dT) (hch2a : T.ch2an = ch2anC grumpkin sponge dT)
     (hch2b : T.ch2bn = ch2bnC grumpkin sponge dT)
     (hcfx : ∀ n c0 c1 c2, T.cfX n c0 c1 c2 = cfVec n c0 c1 c2)
-    (hsmul1 : ∀ (n : ℕ) (P : bn254.toAffine.Point), (n : ZMod r) • P = n • P)
-    (hsmul2 : ∀ (n : ℕ) (P : grumpkin.toAffine.Point), (n : ZMod q) • P = n • P)
     -- the two circuits and the trusted R1CS synthesis (completeness direction)
     (EAc : emu.Complete)
     (circA : Circuit (ZMod r) 1 T.nw1 (AugVars r sN))
@@ -246,10 +240,8 @@ theorem ivc_complete_deployed
         ∃ w, T.k1.r1cs.Sat x w ∧ circA.decode w = ω)
     (circC : Circuit (ZMod q) 7 T.nw2 (CFWit (ZMod q))) (hcompC : circC.Compiles T.k2.r1cs)
     (hrelC : ∀ x ω, circC.rel x ω ↔ CFRel bn254 128 g1 (x 0) (x 1) (x 2) (x 3) (x 4) (x 5) (x 6) ω)
-    -- the curve groups: prime order, no 2-torsion
-    (hnr1 : ∀ e : ZMod q, e ^ 3 + bn254.a₄ * e + bn254.a₆ ≠ 0)
+    -- the curve groups have prime order
     (hord1 : ∀ P : bn254.toAffine.Point, P ≠ 0 → addOrderOf P = r)
-    (hnr2 : ∀ e : ZMod r, e ^ 3 + grumpkin.a₄ * e + grumpkin.a₆ ≠ 0)
     (hord2 : ∀ P : grumpkin.toAffine.Point, P ≠ 0 → addOrderOf P = q)
     (z0 : Fin sN → ZMod r) :
     ∀ (ws : List SW) (zn : Fin sN → ZMod r), Chain StepRel z0 ws zn → ws.length < r →
@@ -260,12 +252,9 @@ theorem ivc_complete_deployed
   intro ws zn hc hN
   have h2q : (2 : ZMod q) ≠ 0 := by exact_mod_cast natCast_ne_zero (n := q) (by norm_num) (by norm_num [q])
   have h2r : (2 : ZMod r) ≠ 0 := by exact_mod_cast natCast_ne_zero (n := r) (by norm_num) (by norm_num [r])
-  have h3 : bn254.a₆ ≠ 0 := by
-    show (3 : ZMod q) ≠ 0
-    exact_mod_cast natCast_ne_zero (n := q) (by norm_num) (by norm_num [q])
   exact ivc_complete_of_circuits bn254 grumpkin sponge dS dT rm1 g1 g2 StepRel hp hq hbits T hco hhs
-    hch hch2a hch2b hcfx hsmul1 hsmul2 EAc circA hcompA circC hcompC hrelC h3 h2q hnr1 hord1
-    (by norm_num [r]) g1_on h2r hnr2 hord2 (by norm_num [q]) g2_on (by norm_num [q])
+    hch hch2a hch2b hcfx EAc circA hcompA circC hcompC hrelC h2q hord1
+    (by norm_num [r]) g1_on h2r hord2 (by norm_num [q]) g2_on (by norm_num [q])
     (by norm_num [r]) (by norm_num [q]) rm1_val (castOK_of_lt hN) z0 ws zn hc le_rfl
 
 end Deployment

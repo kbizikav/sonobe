@@ -116,10 +116,10 @@ theorem nrm_dbl_Y (h : y ^ 2 = x ^ 3 + a * x + b) :
   simp only [rcb]; grind
 
 /-- Opposite points: `Q = -P`. -/
-theorem nrm_neg_X (h : y ^ 2 = x ^ 3 + a * x + b) : (nrm a b x y x (-y)).x = 0 := by
+theorem nrm_neg_X (_h : y ^ 2 = x ^ 3 + a * x + b) : (nrm a b x y x (-y)).x = 0 := by
   simp only [rcb]; grind
 
-theorem nrm_neg_Z (h : y ^ 2 = x ^ 3 + a * x + b) : (nrm a b x y x (-y)).z = 0 := by
+theorem nrm_neg_Z (_h : y ^ 2 = x ^ 3 + a * x + b) : (nrm a b x y x (-y)).z = 0 := by
   simp only [rcb]; grind
 
 theorem cubic_div (a b t g : F) (hg : g ≠ 0) :

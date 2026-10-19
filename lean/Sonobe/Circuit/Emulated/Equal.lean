@@ -101,7 +101,7 @@ def EvRel (d : ℕ → ZMod p) (evs : List Ev) : Prop :=
 
 theorem Bnd.filterSafe_eq_some {L : ℤ} {a b : Bnd} : a.filterSafe L = some b ↔ Bnd.Safe L a ∧ a = b := by
   unfold Bnd.filterSafe
-  split_ifs with h <;> simp [h, eq_comm]
+  split_ifs with h <;> simp [h]
 
 theorem carryRange_spec {M : ℤ} {vb : Bnd} {len : ℕ} {lb : ℤ} {nb : ℕ} {range : Bnd}
     (h : carryRange M vb len = some (lb, nb, range)) :

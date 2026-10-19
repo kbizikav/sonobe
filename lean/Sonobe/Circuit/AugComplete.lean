@@ -26,6 +26,7 @@ section Basics
 
 variable {p1 p2 : ℕ} [Fact p1.Prime] [Fact p2.Prime]
 
+omit [Fact (Nat.Prime p1)] [Fact (Nat.Prime p2)] in
 /-- The top limb of a canonical value is below `2^30`. -/
 theorem top_lt (hp2 : p2 ≤ 2 ^ 254) {a : ℕ → ZMod p1} (h : Canon p2 a) : (a 7).val < 2 ^ 30 := by
   have h1 : (a 7).val * 2 ^ (32 * 7) ≤ limbsVal 8 a := by
@@ -91,6 +92,7 @@ theorem cbN_val {pm1 : ℕ → Bool} (hpm : natVal 254 pm1 = p1 - 1) {c : ZMod p
   have := mem_range.mp hj
   simp [bitsOf, cbN, show j < 254 by omega]
 
+omit [Fact (Nat.Prime p2)] in
 theorem canon_selLimbs (hp2 : 0 < p2) {bc : ZMod p1} (hbc : bc = 0 ∨ bc = 1) {a : ℕ → ZMod p1}
     (h : Canon p2 a) : Canon p2 (selLimbs bc a) := by
   rcases hbc with rfl | rfl
@@ -116,6 +118,7 @@ theorem primList_enc {v : AugVars p1 sN} (h32 : 2 ^ 32 ≤ p1) (cp : ∀ k, Cano
   simp only [Uraw, uinRaw, piRaw, encRU1, encIU1, encPtE, List.append_assoc, List.cons_append,
     List.nil_append]
 
+omit [Fact (Nat.Prime p1)] in
 theorem prs_eq {n : ℕ} {ao : Fin n → ZMod p1 × ZMod p1} {e : Fin n → List (ZMod p1)}
     (h : ∀ k, pr (ao k) = e k) : prs ao = (List.ofFn e).flatten := by
   unfold prs
@@ -123,13 +126,14 @@ theorem prs_eq {n : ℕ} {ao : Fin n → ZMod p1 × ZMod p1} {e : Fin n → List
   congr 2
   funext k; exact h k
 
+omit [Fact (Nat.Prime p1)] in
 theorem flatten_ofFn_succ {n : ℕ} (e : Fin (n + 1) → List (ZMod p1)) :
     (List.ofFn e).flatten = e 0 ++ (List.ofFn fun j : Fin n => e j.succ).flatten := by
   rw [List.ofFn_succ]; simp
 
 /-- The list absorbed for one secondary fold (`cf_U`, `cf_u`, `cf_π`) is the model encoding. -/
 theorem chalList_enc (W : WeierstrassCurve (ZMod p1)) [Short W] [W.IsElliptic]
-    (h32 : 2 ^ 32 ≤ p1) (hp2b : p2 ≤ 2 ^ 254) (hp2e : p2 ≤ 2 ^ (32 * 8))
+    (h32 : 2 ^ 32 ≤ p1)
     {a : Fin 8 → ℕ → ZMod p1} (ha : ∀ k, Canon p2 (a k))
     {aw : Fin 8 → AbsWit p1} {ao : Fin 8 → ZMod p1 × ZMod p1}
     (hA : ∀ k, EmuAbsRel (a k) (aw k) (ao k)) {E Wp : PP (ZMod p1)} {nE nW : AffWit (ZMod p1)}
@@ -160,6 +164,7 @@ variable {p1 p2 sN : ℕ} [Fact p1.Prime] [Fact p2.Prime]
   (StepRel : (Fin sN → ZMod p1) → SW → (Fin sN → ZMod p1) → Prop)
   [Module (ZMod p1) W1.toAffine.Point] [Module (ZMod p2) W2.toAffine.Point]
 
+omit [Short W1] [W1.IsElliptic] in
 /-- **An honest assignment of the augmented circuit exists**, its public output is
 `Setup.augOut`, and its values are `Setup.honestOut`. -/
 theorem aug_witness
@@ -192,8 +197,6 @@ theorem aug_witness
   have h32' : 2 ^ 32 < p1 := lt_of_lt_of_le (by omega : 2 ^ 32 < 2 ^ 32 + 2 ^ 33) hp.le
   have hp2e : p2 ≤ 2 ^ (32 * 8) := hp2.le
   have hp2pos : 0 < p2 := (Fact.out : p2.Prime).pos
-  have hb2 : W2.a₆ ≠ 0 := by
-    intro h0; apply hnr 0; simpa [h0] using h0
   -- coordinates of the primary points, as values of the emulated field
   set F1 := T.fold1 U u π with hF1
   set cs : Fin 12 → ZMod p2 :=
@@ -217,12 +220,12 @@ theorem aug_witness
   set c1W := ppOf W2 cu1.cmW with hc1W
   set cp0 := ppOf W2 cπ0 with hcp0
   set cp1 := ppOf W2 cπ1 with hcp1
-  have hvE : ValidPP W2 sE := ppOf_valid W2 hb2 _
-  have hvW : ValidPP W2 sW := ppOf_valid W2 hb2 _
-  have hv0 : ValidPP W2 c0W := ppOf_valid W2 hb2 _
-  have hv1 : ValidPP W2 c1W := ppOf_valid W2 hb2 _
-  have hvp0 : ValidPP W2 cp0 := ppOf_valid W2 hb2 _
-  have hvp1 : ValidPP W2 cp1 := ppOf_valid W2 hb2 _
+  have hvE : ValidPP W2 sE := ppOf_valid W2 _
+  have hvW : ValidPP W2 sW := ppOf_valid W2 _
+  have hv0 : ValidPP W2 c0W := ppOf_valid W2 _
+  have hv1 : ValidPP W2 c1W := ppOf_valid W2 _
+  have hvp0 : ValidPP W2 cp0 := ppOf_valid W2 _
+  have hvp1 : ValidPP W2 cp1 := ppOf_valid W2 _
   -- base case flag
   obtain ⟨bc, invI, hzr, hbc⟩ := isZero_complete ((i : ℕ) : ZMod p1)
   have hbc01 : bc = 0 ∨ bc = 1 := by rw [hbc]; split_ifs <;> simp
@@ -273,9 +276,9 @@ theorem aug_witness
   set rb0 : ℕ → ZMod p1 := fun j => cbN cb2 j with hrb0
   have hrb0b : ∀ j < 128, IsBool (rb0 j) := bool_of_toBits hcb2
   obtain ⟨O1, hO1⟩ := fs2_complete W2 EA hEA h2 hnr hord hrn h32' hG (U := secOf sa sE sW)
-    (I := I0) (π := cp0) (bits := rb0) hrb0b (hsa_canon 0) (fun j => hsa_canon _) hI0canon hvE
-    hvW hv0 hvp0.1
-  obtain ⟨cO1u, cO1x, vO1E, vO1W, hO1v⟩ := fs2_sound W2 hsmul2 EA h2 hnr hord hrn h32' hG
+    (I := I0) (π := cp0) (bits := rb0) hrb0b (hsa_canon 0) (fun j => hsa_canon _) hI0canon hv0
+    hvp0.1
+  obtain ⟨cO1u, cO1x, vO1E, vO1W, hO1v⟩ := fs2_sound W2 hsmul2 EA h2 hnr hord hrn h32'
     (hsa_canon 0) (fun j => hsa_canon _) hI0canon hvE hvW hv0 hvp0.1 hO1
   set o1a : Fin 8 → ℕ → ZMod p1 := Fin.cons O1.u O1.x with ho1a
   have ho1a_canon : ∀ k, Canon p2 (o1a k) := by
@@ -304,8 +307,8 @@ theorem aug_witness
   set rb1 : ℕ → ZMod p1 := fun j => cbN cb3 j with hrb1
   have hrb1b : ∀ j < 128, IsBool (rb1 j) := bool_of_toBits hcb3
   obtain ⟨O2, hO2⟩ := fs2_complete W2 EA hEA h2 hnr hord hrn h32' hG (U := secOf o1a O1.cmE O1.cmW)
-    (I := I1) (π := cp1) (bits := rb1) hrb1b cO1u (fun j => cO1x j) hI1canon vO1E vO1W hv1 hvp1.1
-  obtain ⟨cO2u, cO2x, vO2E, vO2W, hO2v⟩ := fs2_sound W2 hsmul2 EA h2 hnr hord hrn h32' hG
+    (I := I1) (π := cp1) (bits := rb1) hrb1b cO1u (fun j => cO1x j) hI1canon hv1 hvp1.1
+  obtain ⟨cO2u, cO2x, vO2E, vO2W, hO2v⟩ := fs2_sound W2 hsmul2 EA h2 hnr hord hrn h32'
     cO1u (fun j => cO1x j) hI1canon vO1E vO1W hv1 hvp1.1 hO2
   set o2a : Fin 8 → ℕ → ZMod p1 := Fin.cons O2.u O2.x with ho2a
   have ho2a_canon : ∀ k, Canon p2 (o2a k) := by
@@ -470,7 +473,7 @@ theorem aug_witness
     rw [hUraw, hUin, hpiRaw] at hl
     exact congrArg (fun L => (chalStep sp (spInit sp T.pph dT) L).2) hl
   have hL1' : L1 = encRU2 W2 cfU ++ encIU2 W2 cu0 ++ pr (coordsOf W2 cπ0) := by
-    have := chalList_enc W2 h32 hp2b hp2e hsa_canon hS' hnE'c hnW'c I0 hI0canon hAI0 hn0'c hnp0c
+    have := chalList_enc W2 h32 hsa_canon hS' hnE'c hnW'c I0 hI0canon hAI0 hn0'c hnp0c
     rw [hSecV0, hI0val, hcp0pt] at this
     exact this
   have hc2' : c2 = (sec1C W2 sp dT T.pph (T.rawOf U) (T.rawOfI u) (T.coords π) cfU cu0 cπ0).1 := by
@@ -485,7 +488,7 @@ theorem aug_witness
     rw [hO1v, hnat2, hcp0pt, hSecV0, hI0val]; rfl
   have hL2' : L2 = encRU2 W2 (T.cfFold1 U u π cfU cu0 cπ0) ++ encIU2 W2 cu1 ++
       pr (coordsOf W2 cπ1) := by
-    have := chalList_enc W2 h32 hp2b hp2e ho1a_canon hAO1 hnO1Ec hnO1Wc I1 hI1canon hAI1 hn1'c hnp1c
+    have := chalList_enc W2 h32 ho1a_canon hAO1 hnO1Ec hnO1Wc I1 hI1canon hAI1 hn1'c hnp1c
     rw [hsecO1, hO1val, hI1val, hcp1pt] at this
     exact this
   have hc3' : c3 = (chalStep sp (sec1C W2 sp dT T.pph (T.rawOf U) (T.rawOfI u) (T.coords π) cfU cu0
@@ -523,7 +526,7 @@ theorem aug_witness
   have hi1 : ((i + 1 : ℕ) : ZMod p1) = ((i : ℕ) : ZMod p1) + 1 := by push_cast; ring
   by_cases hi : i = 0
   · have hv0i : v.i = 0 := by show ((i : ℕ) : ZMod p1) = 0; rw [hi]; simp
-    have e := aug_uux_zero W2 EA sp dS dT pm1 G StepRel hp hp2 hp2pos hv0i hrel
+    have e := aug_uux_zero W2 EA sp dS dT pm1 G StepRel hp hp2pos hv0i hrel
     unfold Setup.augOut
     rw [if_pos hi, if_pos hi, hi1, hhs]
     have hd : T.rawOf (dummyRU (ZMod p1) W1.toAffine.Point 1) = ⟨(0, 0), 0, (0, 0), fun _ => 0⟩ := by
@@ -531,7 +534,7 @@ theorem aug_witness
     rw [hd]
     exact e
   · have hvi : v.i ≠ 0 := fun h => hi (hcast h)
-    have e := aug_uux_pos W2 EA sp dS dT pm1 G StepRel hsmul2 h2 hnr hord hrn hp hp2 hp2' hG hpm
+    have e := aug_uux_pos W2 EA sp dS dT pm1 G StepRel hsmul2 h2 hnr hord hrn hp hp2 hp2' hpm
       hvi hrel
     have hρ' : T.ch1 T.pph (T.rawOf U) (T.rawOfI u) (T.coords π) = rhoOf cb := by
       unfold Setup.ch1; exact hrho1.symm
@@ -549,6 +552,7 @@ theorem aug_witness
     show _ = hsC (p2 := p2) W2 sp dS v.pp (v.i + 1) v.z0 v.nx _ (SecVar.val (p2 := p2) W2 (secOf o2a O2.cmE O2.cmW))
     rw [hsecO2]
 
+omit [Short W1] [W1.IsElliptic] in
 /-- **`AugComplete`, derived from the augmented circuit**, for the decoder `augOutOf ∘ decode`.
 
 Trusted: the completeness direction of the R1CS synthesis, `AugRel ⇒ ∃ w, Sat` with `w` decoding to

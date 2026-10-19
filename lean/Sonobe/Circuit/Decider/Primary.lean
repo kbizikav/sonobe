@@ -104,6 +104,7 @@ omit [Fact p2.Prime] in
 theorem vecN_apply {m : ℕ} (a : Fin m → ℕ → ZMod p1) (i : Fin m) : vecN a i = a i := by
   simp [vecN, i.2]
 
+omit [Fact (Nat.Prime p2)] [Short W2] [W2.IsElliptic] in
 /-- The challenge bits are the low 128 bits of the squeezed element. -/
 theorem front_ch_val {v : AugVars p1 sN} (hpm : natVal 254 pm1 = p1 - 1)
     (h : FrontRel (p2 := p2) W2 sp dS dT pm1 v) :
