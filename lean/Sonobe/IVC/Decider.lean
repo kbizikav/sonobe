@@ -54,15 +54,27 @@ def Setup.ExtractionOK (n : ℕ) (z0 zn : S) (D : T.DecOut) (E : T.Extraction) :
   E.top.Accepts T.k1 D.U D.u D.π (T.decCh D) ∧ E.top.Binds T.k1 (T.decCh D) D.WW ∧
     T.RunOK dec z0 n zn (T.decProof D E.top) E.steps
 
-/-- **Decider completeness (relation level).** -/
-theorem decider_rel_complete {n : ℕ} {z0 zn : S} {P : Proof T} (hP : T.Good (n + 1) z0 zn P) :
-    ∃ D : T.DecOut, T.DeciderRel (n + 1) z0 zn D := by
+/-- **Decider completeness (relation level)**: an accepted proof whose run meets `RunOK` gives a
+decider relation, and an honest rewinding of the decider's fold gives extraction data meeting
+`ExtractionOK`. -/
+theorem decider_complete (h21 : (2 : F1) ≠ 0) {n : ℕ} {z0 zn : S} {P : Proof T}
+    {ds : List T.StepData} (hn : n ≠ 0) (hP : T.Good n z0 zn P)
+    (hrun : T.RunOK dec z0 n zn P ds) :
+    ∃ (D : T.DecOut) (E : T.Extraction), T.DeciderRel n z0 zn D ∧
+      T.ExtractionOK dec n z0 zn D E := by
   obtain ⟨hx, hU, hu, hcf⟩ := hP
   set π := T.k1.ckE.commit (crossTerm T.k1 P.U P.W P.u P.w) 0
   set ρ := T.ch1 T.pph (T.rawOf P.U) (T.rawOfI P.u) (T.coords π)
-  refine ⟨⟨P.U, P.u, π, foldWitness ρ 0 (crossTerm T.k1 P.U P.W P.u P.w) P.W P.w, P.cfU, P.cfW⟩,
-    by omega, hx, ?_, hcf⟩
-  exact fold_complete T.k1 hU hu ρ 0
+  obtain ⟨r, ha, hb, he⟩ := Rewind.exists_honest T.k1 hU hu 0 (exists_two_ne h21 ρ)
+  set D : T.DecOut :=
+    ⟨P.U, P.u, π, foldWitness ρ 0 (crossTerm T.k1 P.U P.W P.u P.w) P.W P.w, P.cfU, P.cfW⟩
+  have hdp : T.decProof D r = P := by
+    have he' : r.extract (T.decCh D) D.WW = (P.W, P.w) := he
+    rw [Setup.decProof, he']
+  refine ⟨D, ⟨r, ds⟩, ⟨hn, hx, fold_complete T.k1 hU hu ρ 0, hcf⟩, ha, hb, ?_⟩
+  show T.RunOK dec z0 n zn (T.decProof D r) ds
+  rw [hdp]
+  exact hrun
 
 variable {SW : Type*} {R : S → SW → S → Prop}
 

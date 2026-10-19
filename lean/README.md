@@ -13,8 +13,9 @@ witness.
 | Theorem (file) | Meaning |
 |---|---|
 | `ivc_sound_of_circuits` (`FinalSoundness`) | An accepted `(n+1)`-step IVC proof, whose run meets `RunOK`, gives `ws` of length `n+1` with `Chain StepRel z₀ ws z_{n+1}`. |
-| `ivc_complete_of_circuits` (`FinalCompleteness`) | For every `Chain StepRel z₀ ws zₙ`, an honest prover's proof of `(|ws|, z₀, zₙ)` is accepted. |
+| `ivc_complete_of_circuits` (`FinalCompleteness`) | For every `Chain StepRel z₀ ws zₙ`, an honest prover's proof of `(|ws|, z₀, zₙ)` is accepted, its run meets `RunOK`, and the decider's relation holds with extraction data meeting `ExtractionOK`. |
 | `evm_decider_sound` (`FinalDecider`) | If the generated EVM contract accepts `(i, z₀, zᵢ, …)`, and the run meets its hypotheses (`ExtractsAt`, `ExtractionOK`), there are `ws` of length `i` with `Chain StepRel z₀ ws zᵢ`. |
+| `evm_decider_sound_deployed`, `ivc_complete_deployed` (`Deployment`) | The two theorems above for BN254 / Grumpkin, the Poseidon(4) sponge (`Poseidon.circom5`) and the domains `"sponge"`, `"transcript"`. |
 
 What the circuits must satisfy is **derived** from constraint-level models of the Rust gadgets, not
 assumed: bit decompositions, `to_affine`, complete addition, double-and-add, canonical emulated
@@ -38,9 +39,9 @@ sponge the proofs use, for any permutation (`SpongeCfg.absorb_eq_add`, `squeeze_
   * `Setup.HashOK` — the state hash does not collide on the verifier's input and the circuit's at
     any step (`Setup.HsAt`).
 
-  `ExtractionOK` (decider) and `RunOK` (IVC) collect them along the run. `Hypotheses.lean` checks
-  in a group of prime order that each run hypothesis holds for an honest run and fails for a
-  cheating one.
+  `ExtractionOK` (decider) and `RunOK` (IVC) collect them along the run. Honest runs meet them
+  (`ivc_complete_of_circuits`), and `Hypotheses.lean` checks in a group of prime order that a
+  cheating rewinding breaks `Rewind.Binds`.
 * **Emulated-field arithmetic**: only the completeness half, `EmuArith.Complete` (the honest
   prover can satisfy `modulo`). Soundness is derived; the theorems assume the synthesis of the
   carry plans succeeded (it is part of the relations `ModRel`/`CongRel`) and that the static bounds
@@ -48,11 +49,14 @@ sponge the proofs use, for any permutation (`SpongeCfg.absorb_eq_add`, `squeeze_
   `diff/` and the Rust test `test_static_bounds_match_lean`; the R1CS row shapes are not covered). The statements take `bitsLen(p₂−1) = 254`.
 * **Model fidelity** (audited by hand, plus an independent review of each module against the Rust
   code): that `AugRel`, `CFRel`, `DecRel` and the contract model are consequences of the Rust
-  constraints, and for completeness that they are also sufficient (R1CS satisfiability); that the
+  constraints, and for completeness that they are also sufficient (R1CS satisfiability, by a
+  witness that `decode` maps back to the assignment); that the
   committed variables of the CP-SNARK are `WW.e` then `WW.w`; that the step circuit's constraints
   in the augmented circuit are `StepRel` on its wires, independent of `i`.
 * **Math facts**: prime group orders above `2^128`/`2^252`, no 2-torsion, `b ≠ 0`, field-size
-  inequalities.
+  inequalities. In `Deployment` the numeric ones are proved; the primality of `r` and `q`, the
+  scalar actions on the curve groups, their prime orders and the absence of 2-torsion stay
+  hypotheses.
 
 Everything is an explicit hypothesis of the theorems that use it; there are no axioms.
 
@@ -66,6 +70,7 @@ Everything is an explicit hypothesis of the theorems that use it; there are no a
 | `EVM` | The generated Solidity verifier at the level of 256-bit words |
 | `Final*.lean` | The three headline theorems above |
 | `Hypotheses.lean` | The run hypotheses in a non-degenerate model |
+| `Deployment.lean` | The headline theorems for the deployed curves, sponge and domains |
 
 ## Build
 

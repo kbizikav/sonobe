@@ -223,7 +223,47 @@ theorem honest (k : Key F G m l nw) {U : RunningInstance F G l} {W : RunningWitn
       icept_line (M := Fin nw → F) h12, slope_line (M := F) h12, icept_line (M := F) h12]
     exact PedersenKey.bindsAt_self _ _ _
 
+/-- An honest rewinding extracts the folded pair itself. -/
+theorem extract_honest {ρ ρ₂ : F} (h12 : ρ ≠ ρ₂) (rT : F) (T : Fin m → F)
+    (W : RunningWitness F m nw) (w : IncomingWitness F nw) (ρ₃ : F) (W₃ : RunningWitness F m nw) :
+    (⟨ρ₂, foldWitness ρ₂ rT T W w, ρ₃, W₃⟩ : Rewind F m nw).extract ρ (foldWitness ρ rT T W w) =
+      (W, w) := by
+  obtain ⟨e, rE, ww, rW⟩ := W
+  obtain ⟨w', rw'⟩ := w
+  simp only [extract, Nova.extract, foldWitness, ← smul_eq_mul,
+    icept_line (M := Fin m → F) h12, slope_line (M := Fin nw → F) h12,
+    icept_line (M := Fin nw → F) h12, slope_line (M := F) h12, icept_line (M := F) h12]
+
+/-- **Every honest fold has a rewinding** that is accepting, breaks no binding and extracts the
+folded pair, in a field with three distinct elements. -/
+theorem exists_honest (k : Key F G m l nw) {U : RunningInstance F G l}
+    {W : RunningWitness F m nw} {u : IncomingInstance G F l} {w : IncomingWitness F nw}
+    (hU : k.Running U W) (hu : k.Incoming u w) (rT : F) {ρ : F}
+    (h3 : ∃ a b : F, ρ ≠ a ∧ ρ ≠ b ∧ a ≠ b) :
+    ∃ r : Rewind F m nw,
+      r.Accepts k U u (k.ckE.commit (crossTerm k U W u w) rT) ρ ∧
+      r.Binds k ρ (foldWitness ρ rT (crossTerm k U W u w) W w) ∧
+      r.extract ρ (foldWitness ρ rT (crossTerm k U W u w) W w) = (W, w) := by
+  obtain ⟨a, b, ha, hb, hab⟩ := h3
+  obtain ⟨hA, hB⟩ := honest k hU hu rT ha hb hab
+  exact ⟨_, hA, hB, extract_honest ha rT _ W w _ _⟩
+
 end Rewind
+
+/-- Three distinct elements: two that differ from `ρ` and from each other. -/
+theorem exists_two_ne {F : Type*} [Field F] (h2 : (2 : F) ≠ 0) (ρ : F) :
+    ∃ a b : F, ρ ≠ a ∧ ρ ≠ b ∧ a ≠ b := by
+  have h01 : (0 : F) ≠ 1 := zero_ne_one
+  have h0m : (0 : F) ≠ -1 := by simp
+  have h1m : (1 : F) ≠ -1 := by
+    intro h
+    apply h2
+    linear_combination h
+  by_cases e0 : ρ = 0
+  · exact ⟨1, -1, by rw [e0]; exact h01, by rw [e0]; exact h0m, h1m⟩
+  by_cases e1 : ρ = 1
+  · exact ⟨0, -1, by rw [e1]; exact h01.symm, by rw [e1]; exact h1m, h0m⟩
+  · exact ⟨0, 1, e0, e1, h01⟩
 
 end Nova
 end Sonobe

@@ -5,7 +5,8 @@ import Sonobe.Circuit.CFComplete
 
 /-!
 Completeness of the augmented circuit: for honest inputs the circuit model `AugRel` has a
-satisfying assignment whose public output is `Setup.augOut`.
+satisfying assignment whose public output is `Setup.augOut` and whose values are
+`Setup.honestOut`.
 
 The assignment is built gadget by gadget. Hash outputs are *defined* by the constraint that pins
 them (`uxIn`, `c`, the squeezed secondary challenges, `uux`) and then identified with the model
@@ -159,8 +160,8 @@ variable {p1 p2 sN : ℕ} [Fact p1.Prime] [Fact p2.Prime]
   (StepRel : (Fin sN → ZMod p1) → SW → (Fin sN → ZMod p1) → Prop)
   [Module (ZMod p1) W1.toAffine.Point] [Module (ZMod p2) W2.toAffine.Point]
 
-/-- **An honest assignment of the augmented circuit exists**, and its public output is
-`Setup.augOut`. -/
+/-- **An honest assignment of the augmented circuit exists**, its public output is
+`Setup.augOut`, and its values are `Setup.honestOut`. -/
 theorem aug_witness
     (T : Setup (ZMod p1) W1.toAffine.Point (ZMod p2) W2.toAffine.Point (Fin sN → ZMod p1)
       (ZMod p2 × ZMod p2) 7)
@@ -185,7 +186,8 @@ theorem aug_witness
     (hx1 : cu1.x = T.cfX (T.ch1n T.pph (T.rawOf U) (T.rawOfI u) (T.coords π)) (T.coords U.cmW)
       (T.coords u.cmW) (T.coords (T.fold1 U u π).cmW)) :
     ∃ (v : AugVars p1 sN) (uux : ZMod p1), AugRel W2 EA sp dS dT pm1 G StepRel v uux ∧
-      uux = T.augOut i z0 nx U u π cfU cu0 cu1 cπ0 cπ1 := by
+      uux = T.augOut i z0 nx U u π cfU cu0 cu1 cπ0 cπ1 ∧
+      augOutOf W2 v = T.honestOut i z0 zi nx U u π cfU cu0 cu1 cπ0 cπ1 := by
   have h32 : 2 ^ 32 ≤ p1 := le_trans (Nat.le_add_right _ _) hp.le
   have h32' : 2 ^ 32 < p1 := lt_of_lt_of_le (by omega : 2 ^ 32 < 2 ^ 32 + 2 ^ 33) hp.le
   have hp2e : p2 ≤ 2 ^ (32 * 8) := hp2.le
@@ -506,6 +508,17 @@ theorem aug_witness
     rw [hO2v, hnat3, hcp1pt]
     try rw [hsecO1]
     rw [hO1val, hI1val]; rfl
+  -- the values of the assignment
+  refine ⟨?_, ?_⟩
+  swap
+  · have e8 : (vE v 8, vE v 9) = T.coords F1.cmE := by
+      simp only [hvE_eq, cs8, cs9, hco', Prod.mk.eta]
+    have e10 : (vE v 10, vE v 11) = T.coords F1.cmW := by
+      simp only [hvE_eq, cs10, cs11, hco', Prod.mk.eta]
+    simp only [augOutOf, Setup.honestOut, AugOut.mk.injEq]
+    exact ⟨rfl, rfl, rfl, rfl, rfl, hUraw, hUin, hpiRaw, hSecV, hI0val, hI1val, hcp0pt, hcp1pt,
+      congrArg (fun n : ℕ => (n : ZMod p2)) hnat2, congrArg (fun n : ℕ => (n : ZMod p2)) hnat3,
+      e8, e10⟩
   -- the output hash
   have hi1 : ((i + 1 : ℕ) : ZMod p1) = ((i : ℕ) : ZMod p1) + 1 := by push_cast; ring
   by_cases hi : i = 0
@@ -536,10 +549,11 @@ theorem aug_witness
     show _ = hsC (p2 := p2) W2 sp dS v.pp (v.i + 1) v.z0 v.nx _ (SecVar.val (p2 := p2) W2 (secOf o2a O2.cmE O2.cmW))
     rw [hsecO2]
 
-/-- **`AugComplete`, derived from the augmented circuit.**
+/-- **`AugComplete`, derived from the augmented circuit**, for the decoder `augOutOf ∘ decode`.
 
-Trusted: the completeness direction of the R1CS synthesis, `AugRel ⇒ ∃ w, Sat` (every Rust
-constraint is either modelled in `AugRel` or determined by the modelled wires). -/
+Trusted: the completeness direction of the R1CS synthesis, `AugRel ⇒ ∃ w, Sat` with `w` decoding to
+the assignment (every Rust constraint is either modelled in `AugRel` or determined by the modelled
+wires, and the witness holds the wires). -/
 theorem augComplete_of_circuit
     (T : Setup (ZMod p1) W1.toAffine.Point (ZMod p2) W2.toAffine.Point (Fin sN → ZMod p1)
       (ZMod p2 × ZMod p2) 7)
@@ -547,20 +561,23 @@ theorem augComplete_of_circuit
     (hch2a : T.ch2an = ch2anC W2 sp dT) (hch2b : T.ch2bn = ch2bnC W2 sp dT)
     (hcfx : ∀ n c0 c1 c2, T.cfX n c0 c1 c2 = cfVec n c0 c1 c2) (hEA : EA.Complete)
     (hsmul2 : ∀ (n : ℕ) (P : W2.toAffine.Point), (n : ZMod p2) • P = n • P)
+    (circ : Circuit (ZMod p1) 1 T.nw1 (AugVars p1 sN))
     (hcompl : ∀ (x : Fin 1 → ZMod p1) (ω : AugVars p1 sN),
-      AugRel W2 EA sp dS dT pm1 G StepRel ω (x 0) → ∃ w, T.k1.r1cs.Sat x w)
+      AugRel W2 EA sp dS dT pm1 G StepRel ω (x 0) → ∃ w, T.k1.r1cs.Sat x w ∧ circ.decode w = ω)
     (h2 : (2 : ZMod p1) ≠ 0) (hnr : ∀ e : ZMod p1, e ^ 3 + W2.a₄ * e + W2.a₆ ≠ 0) {r : ℕ}
     (hord : ∀ P : W2.toAffine.Point, P ≠ 0 → addOrderOf P = r) (hrn : 2 ^ 128 < r)
     (hp : 2 ^ 32 + 2 ^ 33 < p1) (hp2 : p2 < 2 ^ (32 * 8)) (hp2' : 2 ^ 128 ≤ p2)
     (hp1b : p1 ≤ 2 ^ 254) (hp2b : p2 ≤ 2 ^ 254)
     (hG : W2.toAffine.Equation G.1 G.2) (hpm : natVal 254 pm1 = p1 - 1) :
-    T.AugComplete StepRel := by
+    T.AugComplete StepRel (fun w => augOutOf W2 (circ.decode w)) := by
   intro i z0 zi nx stw U u π cfU cu0 cu1 cπ0 cπ1 hR hcast hi0 hux hx0 hx1
-  obtain ⟨v, uux, hrel, huux⟩ := aug_witness W1 W2 EA sp dS dT pm1 G StepRel T hco hhs hch hch2a
+  obtain ⟨v, uux, hrel, huux, hout⟩ := aug_witness W1 W2 EA sp dS dT pm1 G StepRel T hco hhs hch hch2a
     hch2b hcfx hEA hsmul2 h2 hnr hord hrn hp hp2 hp2' hp1b hp2b hG hpm i z0 zi nx stw hR U u π cfU
     cu0 cu1 cπ0 cπ1 hcast hi0 hux hx0 hx1
-  obtain ⟨w, hw⟩ := hcompl (fun _ => uux) v hrel
-  exact ⟨⟨w, 0⟩, ⟨T.k1.ckW.commit w 0, fun _ => uux⟩, ⟨hw, rfl⟩, by rw [huux]⟩
+  obtain ⟨w, hw, hdec⟩ := hcompl (fun _ => uux) v hrel
+  refine ⟨⟨w, 0⟩, ⟨T.k1.ckW.commit w 0, fun _ => uux⟩, ⟨hw, rfl⟩, by rw [huux], ?_⟩
+  show augOutOf W2 (circ.decode w) = _
+  rw [hdec, hout]
 
 end Main
 

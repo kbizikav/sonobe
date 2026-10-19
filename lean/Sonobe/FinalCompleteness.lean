@@ -2,9 +2,13 @@ import Sonobe.Circuit.EmuArithConcrete
 import Sonobe.FinalSoundness
 import Sonobe.Circuit.AugComplete
 import Sonobe.IVC.Completeness
+import Sonobe.IVC.Decider
 
 /-!
-**IVC completeness from the circuit models.**
+**IVC completeness from the circuit models**, with the run's hypotheses: for every chain of steps an
+honest prover's proof is accepted, its run meets `RunOK` for the decoder of the augmented circuit,
+and the decider's relation holds with extraction data meeting `ExtractionOK`. So the hypotheses of
+`ivc_sound_of_circuits` and of `IVC.decider_rel_sound` hold together on honest runs.
 
 `IVC.ivc_complete` needs satisfying assignments of the augmented and the CycleFold circuit; they
 are derived from the constraint-level models:
@@ -14,8 +18,8 @@ are derived from the constraint-level models:
   Fiat–Shamir derivation of both secondary challenges.
 
 Trusted in addition to the soundness side: the *completeness* direction of the R1CS
-synthesis (`constraint model ⇒ R1CS satisfiable`), the completeness half of the emulated modular
-arithmetic (`EmuArith.Complete`).
+synthesis (`constraint model ⇒ R1CS satisfiable`, by a witness that `decode` maps back to the
+assignment), the completeness half of the emulated modular arithmetic (`EmuArith.Complete`).
 -/
 
 namespace Sonobe
@@ -48,8 +52,10 @@ theorem ivc_complete_of_circuits
     (hsmul2 : ∀ (n : ℕ) (P : W2.toAffine.Point), (n : ZMod p2) • P = n • P)
     -- the two circuits and the trusted R1CS synthesis (completeness direction)
     (EAc : (EmuArith.concrete hp hp2 hbits).Complete)
+    (circA : Circuit (ZMod p1) 1 T.nw1 (AugVars p1 sN))
     (hcompA : ∀ (x : Fin 1 → ZMod p1) (ω : AugVars p1 sN),
-      AugRel W2 (EmuArith.concrete hp hp2 hbits) sp dS dT pm1 G2 StepRel ω (x 0) → ∃ w, T.k1.r1cs.Sat x w)
+      AugRel W2 (EmuArith.concrete hp hp2 hbits) sp dS dT pm1 G2 StepRel ω (x 0) →
+        ∃ w, T.k1.r1cs.Sat x w ∧ circA.decode w = ω)
     (circC : Circuit (ZMod p2) 7 T.nw2 (CFWit (ZMod p2))) (hcompC : circC.Compiles T.k2.r1cs)
     (hrelC : ∀ x ω, circC.rel x ω ↔ CFRel W1 128 G1 (x 0) (x 1) (x 2) (x 3) (x 4) (x 5) (x 6) ω)
     -- curve and field facts
@@ -64,12 +70,21 @@ theorem ivc_complete_of_circuits
     (hp1b : p1 ≤ 2 ^ 254) (hp2b : p2 ≤ 2 ^ 254) (hpm : natVal 254 pm1 = p1 - 1)
     {N : ℕ} (hcast : CastOK (ZMod p1) N) (z0 : Fin sN → ZMod p1) :
     ∀ (ws : List SW) (zn : Fin sN → ZMod p1), Chain StepRel z0 ws zn → ws.length ≤ N →
-      ∃ P : Proof T, T.Verify ws.length z0 zn P :=
-  ivc_complete T
+      ∃ (P : Proof T) (ds : List T.StepData), T.Verify ws.length z0 zn P ∧
+        (ws ≠ [] → T.RunOK (fun w => augOutOf W2 (circA.decode w)) z0 ws.length zn P ds ∧
+          ∃ (D : T.DecOut) (E : T.Extraction), T.DeciderRel ws.length z0 zn D ∧
+            T.ExtractionOK (fun w => augOutOf W2 (circA.decode w)) ws.length z0 zn D E) := by
+  intro ws zn hc hN
+  obtain ⟨P, ds, hV, hrun⟩ := ivc_complete T _
     (augComplete_of_circuit W1 W2 (EmuArith.concrete hp hp2 hbits) sp dS dT pm1 G2 StepRel T hco
-      hhs hch hch2a hch2b hcfx EAc hsmul2 hcompA h2b hnr2 hord2 hrn2 hp hp2 hp2' hp1b hp2b hG2 hpm)
+      hhs hch hch2a hch2b hcfx EAc hsmul2 circA hcompA h2b hnr2 hord2 hrn2 hp hp2 hp2' hp1b hp2b
+      hG2 hpm)
     (cfComplete_of_circuit W1 T hco hcfx hsmul1 hG1 circC hcompC hrelC hb1 h2a hnr1 hord1 hrn1 hp2')
-    hcast z0
+    h2b h2a hcast z0 ws zn hc hN
+  refine ⟨P, ds, hV, fun hne => ⟨hrun hne, ?_⟩⟩
+  have hl : ws.length ≠ 0 := by simpa using hne
+  have hP : T.Good ws.length z0 zn P := by simpa [Setup.Verify, hl] using hV
+  exact decider_complete T _ h2b hl hP (hrun hne)
 
 end Gadget
 end Sonobe
